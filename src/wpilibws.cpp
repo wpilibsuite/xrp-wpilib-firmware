@@ -92,4 +92,16 @@ bool dsWatchdogActive() {
   return _dsWatchdog.satisfied();
 }
 
+// Message encoders
+std::string makeEncoderMessage(int deviceId, int count) {
+  StaticJsonDocument<256> msg;
+  msg["type"] = "Encoder";
+  msg["device"] = std::to_string(deviceId);
+  msg["data"][">count"] = count;
+
+  std::string ret;
+  serializeJson(msg, ret);
+  return ret;
+}
+
 } // namespace wpilibws

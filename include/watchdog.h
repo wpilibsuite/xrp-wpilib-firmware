@@ -2,7 +2,7 @@
 
 #include <string>
 
-#define DEFAULT_WATCHDOG_TIMEOUT 1000
+#define DEFAULT_WATCHDOG_TIMEOUT 500
 
 namespace xrp {
 

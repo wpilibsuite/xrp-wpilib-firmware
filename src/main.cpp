@@ -2,22 +2,41 @@
 #include <ArduinoJson.h>
 #include <WebServer.h>
 #include <WebSockets4WebServer.h>
+#include <WebSocketsServer.h>
 #include <WiFi.h>
+#include <vector>
 
 #include "robot.h"
 #include "wpilibws.h"
 
 // HTTP and WS Servers
 WebServer webServer(3300);
-WebSockets4WebServer wsServer;
+WebSocketsServer wsServer(3300);
+
+std::vector<std::string> outboundMessages;
 
 // TEMP: Status
 unsigned long _wsMessageCount = 0;
 unsigned long _lastMessageStatusPrint = 0;
 int _baselineUsedHeap = 0;
 
-void handleIndexRoute() {
-  webServer.send(200, "text/plain", "You probably want the WS interface on /wpilibws");
+unsigned long _avgLoopTimeUs = 0;
+unsigned long _loopTimeMeasurementCount = 0;
+
+// void handleIndexRoute() {
+//   webServer.send(200, "text/plain", "You probably want the WS interface on /wpilibws");
+// }
+
+void sendMessage(std::string msg) {
+  outboundMessages.push_back(msg);
+}
+
+void checkAndSendMessages() {
+  for (auto msg : outboundMessages) {
+    wsServer.broadcastTXT(msg.c_str());
+  }
+
+  outboundMessages.clear();
 }
 
 void handleWSEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
@@ -46,14 +65,21 @@ void handleWSEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length) 
 }
 
 void checkPrintStatus() {
-  if (millis() - _lastMessageStatusPrint > 1000) {
+  if (millis() - _lastMessageStatusPrint > 5000) {
     int numConnectedClients = wsServer.connectedClients();
     int usedHeap = rp2040.getUsedHeap();
-    Serial.printf("t:%u c:%d h:%d msg:%u\n", millis(), numConnectedClients, usedHeap, _wsMessageCount);
+    Serial.printf("t(ms):%u c:%d h:%d msg:%u lt(us):%u\n", millis(), numConnectedClients, usedHeap, _wsMessageCount, _avgLoopTimeUs);
     _lastMessageStatusPrint = millis();
   }
 }
 
+void updateLoopTime(unsigned long loopStart) {
+  unsigned long loopTime = micros() - loopStart;
+  unsigned long totalTime = _avgLoopTimeUs * _loopTimeMeasurementCount;
+  _loopTimeMeasurementCount++;
+
+  _avgLoopTimeUs = (totalTime + loopTime) / _loopTimeMeasurementCount;
+}
 
 
 void setup() {
@@ -79,15 +105,19 @@ void setup() {
   }
 
   // Set up HTTP server routes
-  Serial.println("[NET] Setting up Web Server routes");
-  webServer.on("/", handleIndexRoute);
+  // Serial.println("[NET] Setting up Web Server routes");
+  // webServer.on("/", handleIndexRoute);
 
   // Set up WS routing
-  Serial.println("[NET] Setting up WebSocket routing");
-  webServer.addHook(wsServer.hookForWebserver("/wpilibws", handleWSEvent));
+  // Serial.println("[NET] Setting up WebSocket routing");
+  // webServer.addHook(wsServer.hookForWebserver("/wpilibws", handleWSEvent));
 
-  Serial.println("[NET] Starting Web Server on port 3300");
-  webServer.begin();
+  // Serial.println("[NET] Starting Web Server on port 3300");
+  // webServer.begin();
+
+  Serial.println("[NET] Setting up WS Server");
+  wsServer.onEvent(handleWSEvent);
+  wsServer.begin();
 
   Serial.println("[NET] Network Ready");
   Serial.printf("[NET] SSID: %s\n", WiFi.SSID().c_str());
@@ -100,8 +130,18 @@ void setup() {
 }
 
 void loop() {
-  webServer.handleClient();
+  unsigned long loopStartTime = micros();
+
+  // webServer.handleClient();
   wsServer.loop();
+
+  // Disable the robot when we no longer have a connection
+  if (wsServer.connectedClients() == 0) {
+    xrp::setEnabled(false);
+  }
+
+  // Send any messages we need to
+  checkAndSendMessages();
 
   // Read sensor data
   if (xrp::robotPeriodic()) {
@@ -109,9 +149,10 @@ void loop() {
     // Send Encoder data if present
     auto encValues = xrp::getActiveEncoderValues();
     for (auto encData : encValues) {
-      // TODO make message and send
+      sendMessage(wpilibws::makeEncoderMessage(encData.first, encData.second));
     }
   }
 
+  updateLoopTime(loopStartTime);
   checkPrintStatus();
 }

@@ -1,5 +1,6 @@
 #include "robot.h"
 #include "quadrature.pio.h"
+#include "wpilibws.h"
 
 #include <map>
 
@@ -72,9 +73,9 @@ void _setServoPwmValueInternal(int pin, double value) {
 void _setPwmValueInternal(int channel, double value, bool override) {
   if (!_robotEnabled && !override) return;
 
-  // TODO Watchdog
-
-  Serial.printf("[PWM-%u] v: %f\n", channel, value);
+  if (!wpilibws::dsWatchdogActive() && !override) {
+    return;
+  }
 
   // Hard coded channel list
   switch (channel) {
@@ -132,7 +133,14 @@ bool robotInitialized() {
 
 // Return true if this actually ran
 bool robotPeriodic() {
+  // Kill PWM if the watchdog is dead
+  // We want this to run as quickly as possible
+  if (!wpilibws::dsWatchdogActive()) {
+    _pwmShutoff();
+  }
+
   if (millis() - _lastRobotPeriodicCall < 50) return false;
+
   unsigned long encoderReadTime = _readEncodersInternal();
   _lastRobotPeriodicCall = millis();
   return true;
@@ -195,7 +203,7 @@ std::vector<std::pair<int,int> > getActiveEncoderValues() {
     ret.push_back(std::make_pair(wpilibDevice, _encoderValues[nativeChannel]));
   }
   return ret;
-} 
+}
 
 void setPwmValue(int wpilibChannel, double value) {
   _setPwmValueInternal(wpilibChannel, value, false);
