@@ -9,6 +9,9 @@
 #include "robot.h"
 #include "wpilibws.h"
 
+char chipID[20];
+char DEFAULT_SSID[32];
+
 // HTTP and WS Servers
 WebServer webServer(3300);
 WebSocketsServer wsServer(3300);
@@ -83,6 +86,12 @@ void updateLoopTime(unsigned long loopStart) {
 
 
 void setup() {
+  // Generate the default SSID using the flash ID
+  pico_unique_board_id_t id_out;
+  pico_get_unique_board_id(&id_out);
+  sprintf(chipID, "%02x%02x-%02x%02x", id_out.id[4], id_out.id[5], id_out.id[6], id_out.id[7]);
+  sprintf(DEFAULT_SSID, "XRP-%s", chipID);
+
   Serial.begin(115200);
 
   delay(2000);
@@ -95,7 +104,7 @@ void setup() {
 
   // Set up WiFi AP
   WiFi.setHostname("XRP");
-  bool result = WiFi.softAP("XRP", "0123456789");
+  bool result = WiFi.softAP(DEFAULT_SSID, "xrp-wpilib");
   if (result) {
     Serial.println("[NET] WiFi AP Ready");
   }
@@ -129,6 +138,7 @@ void setup() {
   _baselineUsedHeap = rp2040.getUsedHeap();
 }
 
+int lastCheckedNumClients = 0;
 void loop() {
   unsigned long loopStartTime = micros();
 
@@ -136,20 +146,24 @@ void loop() {
   wsServer.loop();
 
   // Disable the robot when we no longer have a connection
-  if (wsServer.connectedClients() == 0) {
+  int numConnectedClients = wsServer.connectedClients();
+  if (lastCheckedNumClients > 0 && numConnectedClients == 0) {
     xrp::setEnabled(false);
   }
+  lastCheckedNumClients = numConnectedClients;
 
-  // Send any messages we need to
-  checkAndSendMessages();
+  if (numConnectedClients > 0) {
+    // Send any messages we need to
+    checkAndSendMessages();
 
-  // Read sensor data
-  if (xrp::robotPeriodic()) {
-    // TODO Got new data, send it up
-    // Send Encoder data if present
-    auto encValues = xrp::getActiveEncoderValues();
-    for (auto encData : encValues) {
-      sendMessage(wpilibws::makeEncoderMessage(encData.first, encData.second));
+    // Read sensor data
+    if (xrp::robotPeriodic()) {
+      // TODO Got new data, send it up
+      // Send Encoder data if present
+      auto encValues = xrp::getActiveEncoderValues();
+      for (auto encData : encValues) {
+        sendMessage(wpilibws::makeEncoderMessage(encData.first, encData.second));
+      }
     }
   }
 
