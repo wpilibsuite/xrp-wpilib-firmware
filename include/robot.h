@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include <vector>
 
 // Hardware Pin defs
 
@@ -55,6 +56,7 @@ void setEnabled(bool enabled);
 void configureEncoder(int deviceId, int chA, int chB);
 int readEncoder(int deviceId);
 void resetEncoder(int deviceId);
+std::vector<std::pair<int,int> > getActiveEncoderValues();
 
 // PWM Related
 void setPwmValue(int wpilibChannel, double value);

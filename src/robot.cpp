@@ -74,6 +74,8 @@ void _setPwmValueInternal(int channel, double value, bool override) {
 
   // TODO Watchdog
 
+  Serial.printf("[PWM-%u] v: %f\n", channel, value);
+
   // Hard coded channel list
   switch (channel) {
     case WPILIB_CH_PWM_MOTOR_L:

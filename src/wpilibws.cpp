@@ -50,13 +50,19 @@ void _handlePWMMessage(JsonDocument& pwmMsg) {
   auto data = pwmMsg["data"];
 
   if (data.containsKey("<speed")) {
-    double value = atof(data["<speed"].as<const char*>());
-    xrp::setPwmValue(channel, value);
+    double value = atof(data["<speed"].as<std::string>().c_str());
+    // Only use the speed value for the builtin motors
+    if (channel >= 0 && channel <= 3) {
+      xrp::setPwmValue(channel, value);
+    }
   }
   else if (data.containsKey("<position")) {
-    double value = atof(data["<position"].as<const char*>());
+    double value = atof(data["<position"].as<std::string>().c_str());
     value = (2.0 * value) - 1.0;
-    xrp::setPwmValue(channel, value);
+    // Use position values for other PWM
+    if (channel > 3) {
+      xrp::setPwmValue(channel, value);
+    }
   }
 }
 
