@@ -2,9 +2,23 @@
 #include "robot.h"
 #include "watchdog.h"
 
+#include <map>
+
 namespace wpilibws {
 
 xrp::Watchdog _dsWatchdog{"ds"};
+
+std::map<std::string, int> _xrpMotorMap = {
+  {"motorL", 0},
+  {"motorR", 1},
+  {"motor3", 2},
+  {"motor4", 3}
+};
+
+std::map<std::string, int> _xrpServoMap = {
+  {"servo1", 4},
+  {"servo2", 5}
+};
 
 void _handleDIOMessage(JsonDocument& dioMsg) {
 
@@ -66,6 +80,42 @@ void _handlePWMMessage(JsonDocument& pwmMsg) {
   }
 }
 
+void _handleXRPMotorMessage(JsonDocument& motorMsg) {
+  std::string device = motorMsg["device"];
+  auto data = motorMsg["data"];
+
+  if (data.containsKey("<speed")) {
+    double value = atof(data["<speed"].as<std::string>().c_str());
+
+    int channel = -1;
+    if (_xrpMotorMap.count(device) > 0) {
+      channel = _xrpMotorMap[device];
+    }
+
+    if (channel != -1) {
+      xrp::setPwmValue(channel, value);
+    }
+  }
+}
+
+void _handleXRPServoMessage(JsonDocument& servoMsg) {
+  std::string device = servoMsg["device"];
+  auto data = servoMsg["data"];
+
+  if (data.containsKey("<position")) {
+    double value = atof(data["<position"].as<std::string>().c_str());
+    value = (2.0 * value) - 1.0;
+    int channel = -1;
+    if (_xrpServoMap.count(device) > 0) {
+      channel = _xrpServoMap[device];
+    }
+
+    if (channel != -1) {
+      xrp::setPwmValue(channel, value);
+    }
+  }
+}
+
 // WS Message Handling
 void processWSMessage(JsonDocument& jsonMsg) {
   // Ensure Validity
@@ -84,6 +134,12 @@ void processWSMessage(JsonDocument& jsonMsg) {
     }
     else if (jsonMsg["type"] == "Gyro") {
       // TODO Gyro
+    }
+    else if (jsonMsg["type"] == "XRPMotor") {
+      _handleXRPMotorMessage(jsonMsg);
+    }
+    else if (jsonMsg["type"] == "XRPServo") {
+      _handleXRPServoMessage(jsonMsg);
     }
   }
 }
