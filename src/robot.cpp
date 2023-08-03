@@ -10,6 +10,10 @@ bool _robotInitialized = false;
 bool _robotEnabled = false;
 unsigned long _lastRobotPeriodicCall = 0;
 
+// NOTE: We default the encoders to use PIO1 since the Servos also use PIO
+// and they start allocating at PIO0
+PIO _encoderPio = pio1;
+
 // PWM outputs
 
 // Encoders
@@ -19,18 +23,18 @@ std::map<int, int> _encoderWPILibChannelToNativeMap;
 
 // Internal helper functions
 void _initEncoders() {
-  uint offset0 = pio_add_program(pio0, &quadrature_program);
-  quadrature_program_init(pio0, ENC_SM_IDX_MOTOR_L, offset0, 4, 5);
-  quadrature_program_init(pio0, ENC_SM_IDX_MOTOR_R, offset0, 12, 13);
-  quadrature_program_init(pio0, ENC_SM_IDX_MOTOR_3, offset0, 0, 1);
-  quadrature_program_init(pio0, ENC_SM_IDX_MOTOR_4, offset0, 8, 9);
+  uint offset0 = pio_add_program(_encoderPio, &quadrature_program);
+  quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_L, offset0, 4, 5);
+  quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_R, offset0, 12, 13);
+  quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_3, offset0, 0, 1);
+  quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_4, offset0, 8, 9);
 }
 
 unsigned long _readEncodersInternal() {
   unsigned long _start = millis();
   for (int i = 0; i < 4; i++) {
-    pio_sm_exec_wait_blocking(pio0, i, pio_encode_in(pio_x, 32));
-    _encoderValues[i] = pio_sm_get_blocking(pio0, i);
+    pio_sm_exec_wait_blocking(_encoderPio, i, pio_encode_in(pio_x, 32));
+    _encoderValues[i] = pio_sm_get_blocking(_encoderPio, i);
   }
   return millis() - _start;
 }
@@ -191,7 +195,7 @@ int readEncoder(int deviceId) {
 
 void resetEncoder(int deviceId) {
   if (_encoderWPILibChannelToNativeMap.count(deviceId) > 0) {
-    pio_sm_exec(pio0, _encoderWPILibChannelToNativeMap[deviceId], pio_encode_set(pio_x, 0));
+    pio_sm_exec(_encoderPio, _encoderWPILibChannelToNativeMap[deviceId], pio_encode_set(pio_x, 0));
   }
 }
 
