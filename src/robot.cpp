@@ -3,6 +3,7 @@
 #include "wpilibws.h"
 
 #include <map>
+#include <vector>
 
 namespace xrp {
 
@@ -10,31 +11,66 @@ bool _robotInitialized = false;
 bool _robotEnabled = false;
 unsigned long _lastRobotPeriodicCall = 0;
 
-// NOTE: We default the encoders to use PIO1 since the Servos also use PIO
-// and they start allocating at PIO0
-PIO _encoderPio = pio1;
+PIO _encoderPio = nullptr;
+uint _encoderPgmOffset = 0;
+PIOProgram _encoderPgm(&quadrature_program);
 
 // PWM outputs
 
 // Encoders
+std::vector<std::pair<int, int> > _encoderPins = {
+  {4, 5},
+  {12, 13},
+  {0, 1},
+  {8, 9}
+};
 int _encoderValues[4] = {0, 0, 0, 0};
+int _encoderStateMachineIdx[4] = {-1, -1, -1, -1};
+PIO _encoderPioInstance[4] = {nullptr, nullptr, nullptr, nullptr};
 std::map<int, int> _encoderWPILibChannelToNativeMap;
 
 
 // Internal helper functions
-void _initEncoders() {
-  uint offset0 = pio_add_program(_encoderPio, &quadrature_program);
-  quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_L, offset0, 4, 5);
-  quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_R, offset0, 12, 13);
-  quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_3, offset0, 0, 1);
-  quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_4, offset0, 8, 9);
+bool _initEncoders() {
+  // TODO Use the PIOProgram wrapper here
+  for (int i = 0; i < 4; i++) {
+    int _pgmOffset = -1;
+    int _smIdx = -1;
+    PIO _pio;
+    if (!_encoderPgm.prepare(&_pio, &_smIdx, &_pgmOffset)) {
+      Serial.printf("[ENC-%u] Failed to set up program\n", i);
+      return false;
+    }
+
+    // Save values
+    _encoderPgmOffset = _pgmOffset;
+    _encoderPioInstance[i] = _pio;
+    _encoderStateMachineIdx[i] = _smIdx;
+
+    // Init the program
+    auto pins = _encoderPins.at(i);
+    quadrature_program_init(_pio, _smIdx, _pgmOffset, pins.first, pins.second);
+  }
+
+  return true;
+  // uint offset0 = pio_add_program(_encoderPio, &quadrature_program);
+  
+  // quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_L, offset0, 4, 5);
+  // quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_R, offset0, 12, 13);
+  // quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_3, offset0, 0, 1);
+  // quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_4, offset0, 8, 9);
 }
 
 unsigned long _readEncodersInternal() {
   unsigned long _start = millis();
   for (int i = 0; i < 4; i++) {
-    pio_sm_exec_wait_blocking(_encoderPio, i, pio_encode_in(pio_x, 32));
-    _encoderValues[i] = pio_sm_get_blocking(_encoderPio, i);
+    PIO _pio = _encoderPioInstance[i];
+    uint _smIdx = _encoderStateMachineIdx[i];
+
+    if (_pio != nullptr) {
+      pio_sm_exec_wait_blocking(_pio, _smIdx, pio_encode_in(pio_x, 32));
+      _encoderValues[i] = pio_sm_get_blocking(_pio, _smIdx);
+    }
   }
   return millis() - _start;
 }
@@ -195,7 +231,10 @@ int readEncoder(int deviceId) {
 
 void resetEncoder(int deviceId) {
   if (_encoderWPILibChannelToNativeMap.count(deviceId) > 0) {
-    pio_sm_exec(_encoderPio, _encoderWPILibChannelToNativeMap[deviceId], pio_encode_set(pio_x, 0));
+    int idx = _encoderWPILibChannelToNativeMap[deviceId];
+    PIO _pio = _encoderPioInstance[idx];
+    uint _smIdx = _encoderStateMachineIdx[idx];
+    pio_sm_exec(_pio, _smIdx, pio_encode_set(pio_x, 0));
   }
 }
 
