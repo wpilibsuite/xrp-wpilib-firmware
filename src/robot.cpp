@@ -3,6 +3,9 @@
 #include "wpilibws.h"
 
 #include <map>
+#include <vector>
+
+#include <Servo.h>
 
 namespace xrp {
 
@@ -10,27 +13,68 @@ bool _robotInitialized = false;
 bool _robotEnabled = false;
 unsigned long _lastRobotPeriodicCall = 0;
 
-// PWM outputs
+// Servo Outputs
+Servo servo1;
+Servo servo2;
+
+// Encoder PIO
+PIO _encoderPio = nullptr;
+uint _encoderPgmOffset = 0;
+PIOProgram _encoderPgm(&quadrature_program);
 
 // Encoders
+std::vector<std::pair<int, int> > _encoderPins = {
+  {4, 5},
+  {12, 13},
+  {0, 1},
+  {8, 9}
+};
 int _encoderValues[4] = {0, 0, 0, 0};
+int _encoderStateMachineIdx[4] = {-1, -1, -1, -1};
+PIO _encoderPioInstance[4] = {nullptr, nullptr, nullptr, nullptr};
 std::map<int, int> _encoderWPILibChannelToNativeMap;
 
-
 // Internal helper functions
-void _initEncoders() {
-  uint offset0 = pio_add_program(pio0, &quadrature_program);
-  quadrature_program_init(pio0, ENC_SM_IDX_MOTOR_L, offset0, 4, 5);
-  quadrature_program_init(pio0, ENC_SM_IDX_MOTOR_R, offset0, 12, 13);
-  quadrature_program_init(pio0, ENC_SM_IDX_MOTOR_3, offset0, 0, 1);
-  quadrature_program_init(pio0, ENC_SM_IDX_MOTOR_4, offset0, 8, 9);
+bool _initEncoders() {
+  // TODO Use the PIOProgram wrapper here
+  for (int i = 0; i < 4; i++) {
+    int _pgmOffset = -1;
+    int _smIdx = -1;
+    PIO _pio;
+    if (!_encoderPgm.prepare(&_pio, &_smIdx, &_pgmOffset)) {
+      Serial.printf("[ENC-%u] Failed to set up program\n", i);
+      return false;
+    }
+
+    // Save values
+    _encoderPgmOffset = _pgmOffset;
+    _encoderPioInstance[i] = _pio;
+    _encoderStateMachineIdx[i] = _smIdx;
+
+    // Init the program
+    auto pins = _encoderPins.at(i);
+    quadrature_program_init(_pio, _smIdx, _pgmOffset, pins.first, pins.second);
+  }
+
+  return true;
+  // uint offset0 = pio_add_program(_encoderPio, &quadrature_program);
+  
+  // quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_L, offset0, 4, 5);
+  // quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_R, offset0, 12, 13);
+  // quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_3, offset0, 0, 1);
+  // quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_4, offset0, 8, 9);
 }
 
 unsigned long _readEncodersInternal() {
   unsigned long _start = millis();
   for (int i = 0; i < 4; i++) {
-    pio_sm_exec_wait_blocking(pio0, i, pio_encode_in(pio_x, 32));
-    _encoderValues[i] = pio_sm_get_blocking(pio0, i);
+    PIO _pio = _encoderPioInstance[i];
+    uint _smIdx = _encoderStateMachineIdx[i];
+
+    if (_pio != nullptr) {
+      pio_sm_exec_wait_blocking(_pio, _smIdx, pio_encode_in(pio_x, 32));
+      _encoderValues[i] = pio_sm_get_blocking(_pio, _smIdx);
+    }
   }
   return millis() - _start;
 }
@@ -53,8 +97,23 @@ void _initMotors() {
   pinMode(XRP_MOTOR_4_PH, OUTPUT);
 
   // Servos
-  pinMode(XRP_SERVO_1_PIN, OUTPUT);
-  pinMode(XRP_SERVO_2_PIN, OUTPUT);
+  // pinMode(XRP_SERVO_1_PIN, OUTPUT);
+  // pinMode(XRP_SERVO_2_PIN, OUTPUT);
+}
+
+bool _initServos() {
+  bool success = true;
+  if(servo1.attach(XRP_SERVO_1_PIN) == -1) {
+    Serial.println("[ERR] Failed to attach servo1");
+    success = false;
+  }
+
+  if (servo2.attach(XRP_SERVO_2_PIN) == -1) {
+    Serial.println("[ERR] Failed to attach servo2");
+    success = false;
+  }
+
+  return success;
 }
 
 void _setMotorPwmValueInternal(int en, int ph, double value) {
@@ -65,9 +124,15 @@ void _setMotorPwmValueInternal(int en, int ph, double value) {
   analogWrite(en, enValue);
 }
 
-void _setServoPwmValueInternal(int pin, double value) {
-  int val = ((value + 1.0) / 2.0) * 255;
-  analogWrite(pin, val);
+void _setServoPwmValueInternal(int servoIdx, double value) {
+  int val = ((value + 1.0) / 2.0) * 180;
+  
+  if (servoIdx == 0 && servo1.attached()) {
+    servo1.write(val);
+  }
+  else if (servoIdx == 1 && servo2.attached()) {
+    servo2.write(val);
+  }
 }
 
 void _setPwmValueInternal(int channel, double value, bool override) {
@@ -92,10 +157,10 @@ void _setPwmValueInternal(int channel, double value, bool override) {
       _setMotorPwmValueInternal(XRP_MOTOR_4_EN, XRP_MOTOR_4_PH, value);
       break;
     case WPILIB_CH_PWM_SERVO_1:
-      _setServoPwmValueInternal(XRP_SERVO_1_PIN, value);
+      _setServoPwmValueInternal(0, value);
       break;
     case WPILIB_CH_PWM_SERVO_2:
-      _setServoPwmValueInternal(XRP_SERVO_2_PIN, value);
+      _setServoPwmValueInternal(1, value);
       break;
   }
 }
@@ -114,11 +179,19 @@ void robotInit() {
 
   // Set up the encoder state machines
   Serial.println("[XRP] Initializing Encoders");
-  _initEncoders();
+  if (!_initEncoders()) {
+    Serial.println("  - ERROR");
+  }
 
-  // Set up the motors and servo outputs
-  Serial.println("[XRP] Initializing PWM");
+  // Set up the motors
+  Serial.println("[XRP] Initializing Motors");
   _initMotors();
+
+  // Set up servos
+  Serial.println("[XRP] Initializing Servos");
+  if (!_initServos()) {
+    Serial.println("  - ERROR");
+  }
 
   // Set up on-board hardware
   pinMode(XRP_BUILTIN_LED, OUTPUT);
@@ -191,7 +264,10 @@ int readEncoder(int deviceId) {
 
 void resetEncoder(int deviceId) {
   if (_encoderWPILibChannelToNativeMap.count(deviceId) > 0) {
-    pio_sm_exec(pio0, _encoderWPILibChannelToNativeMap[deviceId], pio_encode_set(pio_x, 0));
+    int idx = _encoderWPILibChannelToNativeMap[deviceId];
+    PIO _pio = _encoderPioInstance[idx];
+    uint _smIdx = _encoderStateMachineIdx[idx];
+    pio_sm_exec(_pio, _smIdx, pio_encode_set(pio_x, 0));
   }
 }
 
