@@ -5,17 +5,22 @@
 #include <map>
 #include <vector>
 
+#include <Servo.h>
+
 namespace xrp {
 
 bool _robotInitialized = false;
 bool _robotEnabled = false;
 unsigned long _lastRobotPeriodicCall = 0;
 
+// Servo Outputs
+Servo servo1;
+Servo servo2;
+
+// Encoder PIO
 PIO _encoderPio = nullptr;
 uint _encoderPgmOffset = 0;
 PIOProgram _encoderPgm(&quadrature_program);
-
-// PWM outputs
 
 // Encoders
 std::vector<std::pair<int, int> > _encoderPins = {
@@ -28,7 +33,6 @@ int _encoderValues[4] = {0, 0, 0, 0};
 int _encoderStateMachineIdx[4] = {-1, -1, -1, -1};
 PIO _encoderPioInstance[4] = {nullptr, nullptr, nullptr, nullptr};
 std::map<int, int> _encoderWPILibChannelToNativeMap;
-
 
 // Internal helper functions
 bool _initEncoders() {
@@ -93,8 +97,23 @@ void _initMotors() {
   pinMode(XRP_MOTOR_4_PH, OUTPUT);
 
   // Servos
-  pinMode(XRP_SERVO_1_PIN, OUTPUT);
-  pinMode(XRP_SERVO_2_PIN, OUTPUT);
+  // pinMode(XRP_SERVO_1_PIN, OUTPUT);
+  // pinMode(XRP_SERVO_2_PIN, OUTPUT);
+}
+
+bool _initServos() {
+  bool success = true;
+  if(servo1.attach(XRP_SERVO_1_PIN) == -1) {
+    Serial.println("[ERR] Failed to attach servo1");
+    success = false;
+  }
+
+  if (servo2.attach(XRP_SERVO_2_PIN) == -1) {
+    Serial.println("[ERR] Failed to attach servo2");
+    success = false;
+  }
+
+  return success;
 }
 
 void _setMotorPwmValueInternal(int en, int ph, double value) {
@@ -105,9 +124,15 @@ void _setMotorPwmValueInternal(int en, int ph, double value) {
   analogWrite(en, enValue);
 }
 
-void _setServoPwmValueInternal(int pin, double value) {
-  int val = ((value + 1.0) / 2.0) * 255;
-  analogWrite(pin, val);
+void _setServoPwmValueInternal(int servoIdx, double value) {
+  int val = ((value + 1.0) / 2.0) * 180;
+  
+  if (servoIdx == 0 && servo1.attached()) {
+    servo1.write(val);
+  }
+  else if (servoIdx == 1 && servo2.attached()) {
+    servo2.write(val);
+  }
 }
 
 void _setPwmValueInternal(int channel, double value, bool override) {
@@ -132,10 +157,10 @@ void _setPwmValueInternal(int channel, double value, bool override) {
       _setMotorPwmValueInternal(XRP_MOTOR_4_EN, XRP_MOTOR_4_PH, value);
       break;
     case WPILIB_CH_PWM_SERVO_1:
-      _setServoPwmValueInternal(XRP_SERVO_1_PIN, value);
+      _setServoPwmValueInternal(0, value);
       break;
     case WPILIB_CH_PWM_SERVO_2:
-      _setServoPwmValueInternal(XRP_SERVO_2_PIN, value);
+      _setServoPwmValueInternal(1, value);
       break;
   }
 }
@@ -154,11 +179,19 @@ void robotInit() {
 
   // Set up the encoder state machines
   Serial.println("[XRP] Initializing Encoders");
-  _initEncoders();
+  if (!_initEncoders()) {
+    Serial.println("  - ERROR");
+  }
 
-  // Set up the motors and servo outputs
-  Serial.println("[XRP] Initializing PWM");
+  // Set up the motors
+  Serial.println("[XRP] Initializing Motors");
   _initMotors();
+
+  // Set up servos
+  Serial.println("[XRP] Initializing Servos");
+  if (!_initServos()) {
+    Serial.println("  - ERROR");
+  }
 
   // Set up on-board hardware
   pinMode(XRP_BUILTIN_LED, OUTPUT);
