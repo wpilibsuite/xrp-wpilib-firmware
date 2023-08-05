@@ -20,10 +20,6 @@ std::map<std::string, int> _xrpServoMap = {
   {"servo2", 5}
 };
 
-void _handleDIOMessage(JsonDocument& dioMsg) {
-
-}
-
 void _handleDSMessage(JsonDocument& dsMsg) {
   _dsWatchdog.feed();
 
@@ -52,6 +48,16 @@ void _handleEncoderMessage(JsonDocument& encMsg) {
     if (initVal && chA != -1 && chB != -1) {
       xrp::configureEncoder(deviceNum, chA, chB);
     }
+  }
+}
+
+void _handleDIOMessage(JsonDocument& dioMsg) {
+  int deviceNum = atoi(dioMsg["device"].as<const char*>());
+  auto data = dioMsg["data"];
+
+  if (data.containsKey("<>value")) {
+    bool state = data["<>value"];
+    xrp::setDigitalOutput(deviceNum, state);
   }
 }
 
@@ -130,7 +136,7 @@ void processWSMessage(JsonDocument& jsonMsg) {
       _handleEncoderMessage(jsonMsg);
     }
     else if (jsonMsg["type"] == "DIO") {
-      // TODO DIO
+      _handleDIOMessage(jsonMsg);
     }
     else if (jsonMsg["type"] == "Gyro") {
       // TODO Gyro
@@ -154,6 +160,17 @@ std::string makeEncoderMessage(int deviceId, int count) {
   msg["type"] = "Encoder";
   msg["device"] = std::to_string(deviceId);
   msg["data"][">count"] = count;
+
+  std::string ret;
+  serializeJson(msg, ret);
+  return ret;
+}
+
+std::string makeDIOMessage(int deviceId, bool value) {
+  StaticJsonDocument<256> msg;
+  msg["type"] = "DIO";
+  msg["device"] = std::to_string(deviceId);
+  msg["data"]["<>value"] = value;
 
   std::string ret;
   serializeJson(msg, ret);

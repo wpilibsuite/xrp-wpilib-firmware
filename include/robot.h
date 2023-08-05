@@ -43,11 +43,14 @@
 #define WPILIB_CH_PWM_SERVO_1 4
 #define WPILIB_CH_PWM_SERVO_2 5
 
+#define XRP_DATA_ENCODER 0x01
+#define XRP_DATA_DIO 0x02
+
 namespace xrp {
 
 void robotInit();
 bool robotInitialized();
-bool robotPeriodic();
+uint8_t robotPeriodic();
 
 // Robot control
 void setEnabled(bool enabled);
@@ -60,5 +63,9 @@ std::vector<std::pair<int,int> > getActiveEncoderValues();
 
 // PWM Related
 void setPwmValue(int wpilibChannel, double value);
+
+// DIO Related
+bool isUserButtonPressed();
+void setDigitalOutput(int channel, bool value);
 
 } // namespace xrp

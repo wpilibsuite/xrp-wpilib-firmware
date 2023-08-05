@@ -157,14 +157,19 @@ void loop() {
     checkAndSendMessages();
 
     // Read sensor data
-    if (xrp::robotPeriodic()) {
-      // TODO Got new data, send it up
-      // Send Encoder data if present
+    auto updatedData = xrp::robotPeriodic();
+    if (updatedData & XRP_DATA_ENCODER) {
       auto encValues = xrp::getActiveEncoderValues();
       for (auto encData : encValues) {
         sendMessage(wpilibws::makeEncoderMessage(encData.first, encData.second));
       }
     }
+
+    if (updatedData & XRP_DATA_DIO) {
+      // User button is on DIO 0
+      sendMessage(wpilibws::makeDIOMessage(0, xrp::isUserButtonPressed()));
+    }
+
   }
 
   updateLoopTime(loopStartTime);
