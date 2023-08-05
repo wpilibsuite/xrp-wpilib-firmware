@@ -13,6 +13,9 @@ bool _robotInitialized = false;
 bool _robotEnabled = false;
 unsigned long _lastRobotPeriodicCall = 0;
 
+// Digital IO
+bool _lastUserButtonState = false;
+
 // Servo Outputs
 Servo servo1;
 Servo servo2;
@@ -29,6 +32,8 @@ std::vector<std::pair<int, int> > _encoderPins = {
   {0, 1},
   {8, 9}
 };
+
+int _encoderValuesLast[4] = {0, 0, 0, 0};
 int _encoderValues[4] = {0, 0, 0, 0};
 int _encoderStateMachineIdx[4] = {-1, -1, -1, -1};
 PIO _encoderPioInstance[4] = {nullptr, nullptr, nullptr, nullptr};
@@ -65,8 +70,9 @@ bool _initEncoders() {
   // quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_4, offset0, 8, 9);
 }
 
-unsigned long _readEncodersInternal() {
+bool _readEncodersInternal() {
   unsigned long _start = millis();
+  bool hasChange = false;
   for (int i = 0; i < 4; i++) {
     PIO _pio = _encoderPioInstance[i];
     uint _smIdx = _encoderStateMachineIdx[i];
@@ -74,9 +80,16 @@ unsigned long _readEncodersInternal() {
     if (_pio != nullptr) {
       pio_sm_exec_wait_blocking(_pio, _smIdx, pio_encode_in(pio_x, 32));
       _encoderValues[i] = pio_sm_get_blocking(_pio, _smIdx);
+
+      if (_encoderValues[i] != _encoderValuesLast[i]) {
+        hasChange = true;
+      }
+
+      _encoderValuesLast[i] = _encoderValues[i];
     }
   }
-  return millis() - _start;
+
+  return hasChange;
 }
 
 void _initMotors() {
@@ -176,6 +189,8 @@ void _pwmShutoff() {
 
 void robotInit() {
   Serial.println("[XRP] Initializing XRP Onboards");
+  pinMode(XRP_BUILTIN_LED, OUTPUT);
+  pinMode(XRP_BUILTIN_BUTTON, INPUT_PULLUP);
 
   // Set up the encoder state machines
   Serial.println("[XRP] Initializing Encoders");
@@ -193,10 +208,6 @@ void robotInit() {
     Serial.println("  - ERROR");
   }
 
-  // Set up on-board hardware
-  pinMode(XRP_BUILTIN_LED, OUTPUT);
-  pinMode(XRP_BUILTIN_BUTTON, INPUT_PULLUP);
-
   _robotInitialized = true;
 }
 
@@ -205,18 +216,37 @@ bool robotInitialized() {
 }
 
 // Return true if this actually ran
-bool robotPeriodic() {
+uint8_t robotPeriodic() {
+  uint8_t ret = 0;
+
   // Kill PWM if the watchdog is dead
   // We want this to run as quickly as possible
   if (!wpilibws::dsWatchdogActive()) {
     _pwmShutoff();
   }
 
-  if (millis() - _lastRobotPeriodicCall < 50) return false;
+  if (millis() - _lastRobotPeriodicCall < 50) return ret;
 
-  unsigned long encoderReadTime = _readEncodersInternal();
+  // Check for encoder updates
+  bool hasEncUpdate = _readEncodersInternal();
+  if (hasEncUpdate) {
+    ret |= XRP_DATA_ENCODER;
+  }
+
+  // Check for DIO (button) updates
+  bool currButtonState = isUserButtonPressed();
+  if (currButtonState != _lastUserButtonState) {
+    ret |= XRP_DATA_DIO;
+    _lastUserButtonState = currButtonState;
+  }
+
   _lastRobotPeriodicCall = millis();
-  return true;
+  return ret;
+}
+
+bool isUserButtonPressed() {
+  // This is a pull up circuit, so when pressed, the pin is low
+  return digitalRead(XRP_BUILTIN_BUTTON) == LOW;
 }
 
 void setEnabled(bool enabled) {

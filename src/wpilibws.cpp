@@ -160,4 +160,15 @@ std::string makeEncoderMessage(int deviceId, int count) {
   return ret;
 }
 
+std::string makeDIOMessage(int deviceId, bool value) {
+  StaticJsonDocument<256> msg;
+  msg["type"] = "DIO";
+  msg["device"] = std::to_string(deviceId);
+  msg["data"]["<>value"] = value;
+
+  std::string ret;
+  serializeJson(msg, ret);
+  return ret;
+}
+
 } // namespace wpilibws
