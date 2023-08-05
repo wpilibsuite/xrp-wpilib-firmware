@@ -116,12 +116,12 @@ void _initMotors() {
 
 bool _initServos() {
   bool success = true;
-  if(servo1.attach(XRP_SERVO_1_PIN) == -1) {
+  if(servo1.attach(XRP_SERVO_1_PIN, XRP_SERVO_MIN_PULSE_US, XRP_SERVO_MAX_PULSE_US) == -1) {
     Serial.println("[ERR] Failed to attach servo1");
     success = false;
   }
 
-  if (servo2.attach(XRP_SERVO_2_PIN) == -1) {
+  if (servo2.attach(XRP_SERVO_2_PIN, XRP_SERVO_MIN_PULSE_US, XRP_SERVO_MAX_PULSE_US) == -1) {
     Serial.println("[ERR] Failed to attach servo2");
     success = false;
   }
