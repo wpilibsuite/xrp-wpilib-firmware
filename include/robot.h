@@ -66,5 +66,6 @@ void setPwmValue(int wpilibChannel, double value);
 
 // DIO Related
 bool isUserButtonPressed();
+void setDigitalOutput(int channel, bool value);
 
 } // namespace xrp

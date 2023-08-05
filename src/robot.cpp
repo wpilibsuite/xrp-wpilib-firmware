@@ -315,5 +315,12 @@ void setPwmValue(int wpilibChannel, double value) {
   _setPwmValueInternal(wpilibChannel, value, false);
 }
 
+void setDigitalOutput(int channel, bool value) {
+  if (channel == 1) {
+    // LED
+    digitalWrite(XRP_BUILTIN_LED, value ? HIGH : LOW);
+  }
+}
+
 
 } // namespace xrp
