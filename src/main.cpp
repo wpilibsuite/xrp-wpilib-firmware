@@ -162,8 +162,9 @@ void loop() {
   // Disable the robot when we no longer have a connection
   int numConnectedClients = wsServer.connectedClients();
   if (lastCheckedNumClients > 0 && numConnectedClients == 0) {
-    xrp::setEnabled(false);
-    // TODO Clear the message queue
+    xrp::robotSetEnabled(false);
+    xrp::imuSetEnabled(false);
+    outboundMessages.clear();
   }
   lastCheckedNumClients = numConnectedClients;
 
@@ -183,6 +184,14 @@ void loop() {
     if (updatedData & XRP_DATA_DIO) {
       // User button is on DIO 0
       sendMessage(wpilibws::makeDIOMessage(0, xrp::isUserButtonPressed()));
+    }
+
+    // Read Gyro Data
+    if (xrp::imuPeriodic()) {
+      float rateZ = xrp::gyroGetRateZ();
+      float angleZ = xrp::gyroGetAngleZ();
+      
+      sendMessage(wpilibws::makeGyroSingleMessage(wpilibws::AXIS_Z, rateZ, angleZ));
     }
 
   }

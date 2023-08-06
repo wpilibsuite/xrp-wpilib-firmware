@@ -25,7 +25,7 @@ void _handleDSMessage(JsonDocument& dsMsg) {
 
   auto data = dsMsg["data"];
   if (data.containsKey(">enabled")) {
-    xrp::setEnabled(data[">enabled"].as<bool>());
+    xrp::robotSetEnabled(data[">enabled"].as<bool>());
   }
 }
 
@@ -171,6 +171,52 @@ std::string makeDIOMessage(int deviceId, bool value) {
   msg["type"] = "DIO";
   msg["device"] = std::to_string(deviceId);
   msg["data"]["<>value"] = value;
+
+  std::string ret;
+  serializeJson(msg, ret);
+  return ret;
+}
+
+std::string makeGyroCombinedMessage(float rates[3], float angles[3]) {
+  StaticJsonDocument<400> msg;
+  msg["type"] = "Gyro";
+  msg["device"] = "RomiGyro";
+  msg["data"][">rate_x"] = rates[0];
+  msg["data"][">rate_y"] = rates[1];
+  msg["data"][">rate_z"] = rates[2];
+  msg["data"][">angle_x"] = angles[0];
+  msg["data"][">angle_y"] = angles[1];
+  msg["data"][">angle_z"] = angles[2];
+
+  std::string ret;
+  serializeJson(msg, ret);
+  return ret;
+}
+
+std::string makeGyroSingleMessage(ws_gyro_axis_t axis, float rate, float angle) {
+  StaticJsonDocument<400> msg;
+  std::string rateFieldName;
+  std::string angleFieldName;
+
+  switch (axis) {
+    case AXIS_X:
+      rateFieldName = ">rate_x";
+      angleFieldName = ">angle_x";
+      break;
+    case AXIS_Y:
+      rateFieldName = ">rate_y";
+      angleFieldName = ">angle_y";
+      break;
+    case AXIS_Z:
+      rateFieldName = ">rate_z";
+      angleFieldName = ">angle_z";
+      break;
+  }
+
+  msg["type"] = "Gyro";
+  msg["device"] = "RomiGyro";
+  msg["data"][rateFieldName] = rate;
+  msg["data"][angleFieldName] = angle;
 
   std::string ret;
   serializeJson(msg, ret);
