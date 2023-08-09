@@ -3,10 +3,14 @@
 #include "watchdog.h"
 
 #include <map>
+#include <string>
 
 namespace wpilibws {
 
 xrp::Watchdog _dsWatchdog{"ds"};
+
+// Save the gyro identification
+std::string _gyroIdent = "RomiGyro";
 
 std::map<std::string, int> _xrpMotorMap = {
   {"motorL", 0},
@@ -62,7 +66,16 @@ void _handleDIOMessage(JsonDocument& dioMsg) {
 }
 
 void _handleGyroMessage(JsonDocument& gyroMsg) {
+  auto data = gyroMsg["data"];
+  
+  if (data.containsKey("<init")) {
+    bool initVal = data["<init"];
 
+    // If the gyro is initialized, save the device name (we'll use this for sending data)
+    if (initVal) {
+      _gyroIdent = data["device"].as<std::string>();
+    }
+  }
 }
 
 void _handlePWMMessage(JsonDocument& pwmMsg) {
@@ -180,7 +193,7 @@ std::string makeDIOMessage(int deviceId, bool value) {
 std::string makeGyroCombinedMessage(float rates[3], float angles[3]) {
   StaticJsonDocument<400> msg;
   msg["type"] = "Gyro";
-  msg["device"] = "RomiGyro";
+  msg["device"] = _gyroIdent;
   msg["data"][">rate_x"] = rates[0];
   msg["data"][">rate_y"] = rates[1];
   msg["data"][">rate_z"] = rates[2];
@@ -214,7 +227,7 @@ std::string makeGyroSingleMessage(ws_gyro_axis_t axis, float rate, float angle) 
   }
 
   msg["type"] = "Gyro";
-  msg["device"] = "RomiGyro";
+  msg["device"] = _gyroIdent;
   msg["data"][rateFieldName] = rate;
   msg["data"][angleFieldName] = angle;
 
