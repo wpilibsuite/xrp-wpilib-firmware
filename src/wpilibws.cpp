@@ -74,6 +74,7 @@ void _handleGyroMessage(JsonDocument& gyroMsg) {
     // If the gyro is initialized, save the device name (we'll use this for sending data)
     if (initVal) {
       _gyroIdent = data["device"].as<std::string>();
+      Serial.printf("[GYRO] Gyro (%s) initialized from WPILib Code\n", _gyroIdent);
     }
   }
 }
