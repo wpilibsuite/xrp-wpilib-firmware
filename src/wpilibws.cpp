@@ -1,6 +1,7 @@
 #include "wpilibws.h"
 #include "robot.h"
 #include "watchdog.h"
+#include "imu.h"
 
 #include <map>
 #include <string>
@@ -73,8 +74,10 @@ void _handleGyroMessage(JsonDocument& gyroMsg) {
 
     // If the gyro is initialized, save the device name (we'll use this for sending data)
     if (initVal) {
-      _gyroIdent = data["device"].as<std::string>();
-      Serial.printf("[GYRO] Gyro (%s) initialized from WPILib Code\n", _gyroIdent);
+      _gyroIdent = gyroMsg["device"].as<std::string>();
+      Serial.printf("[GYRO] Gyro (%s) initialized from WPILib Code\n", _gyroIdent.c_str());
+
+      xrp::imuSetEnabled(true);
     }
   }
 }
@@ -153,7 +156,7 @@ void processWSMessage(JsonDocument& jsonMsg) {
       _handleDIOMessage(jsonMsg);
     }
     else if (jsonMsg["type"] == "Gyro") {
-      // TODO Gyro
+      _handleGyroMessage(jsonMsg);
     }
     else if (jsonMsg["type"] == "XRPMotor") {
       _handleXRPMotorMessage(jsonMsg);

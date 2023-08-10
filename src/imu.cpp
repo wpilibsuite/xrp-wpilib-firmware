@@ -24,6 +24,7 @@ bool imuIsReady() {
 
 void imuSetEnabled(bool enabled) {
   _imuEnabled = enabled;
+  Serial.printf("[IMU] %s\n", enabled ? "Enabling" : "Disabling");
 }
 
 bool imuIsEnabled() {
