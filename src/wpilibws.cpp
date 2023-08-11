@@ -1,12 +1,17 @@
 #include "wpilibws.h"
 #include "robot.h"
 #include "watchdog.h"
+#include "imu.h"
 
 #include <map>
+#include <string>
 
 namespace wpilibws {
 
 xrp::Watchdog _dsWatchdog{"ds"};
+
+// Save the gyro identification
+std::string _gyroIdent = "RomiGyro";
 
 std::map<std::string, int> _xrpMotorMap = {
   {"motorL", 0},
@@ -25,7 +30,7 @@ void _handleDSMessage(JsonDocument& dsMsg) {
 
   auto data = dsMsg["data"];
   if (data.containsKey(">enabled")) {
-    xrp::setEnabled(data[">enabled"].as<bool>());
+    xrp::robotSetEnabled(data[">enabled"].as<bool>());
   }
 }
 
@@ -62,7 +67,19 @@ void _handleDIOMessage(JsonDocument& dioMsg) {
 }
 
 void _handleGyroMessage(JsonDocument& gyroMsg) {
+  auto data = gyroMsg["data"];
+  
+  if (data.containsKey("<init")) {
+    bool initVal = data["<init"];
 
+    // If the gyro is initialized, save the device name (we'll use this for sending data)
+    if (initVal) {
+      _gyroIdent = gyroMsg["device"].as<std::string>();
+      Serial.printf("[GYRO] Gyro (%s) initialized from WPILib Code\n", _gyroIdent.c_str());
+
+      xrp::imuSetEnabled(true);
+    }
+  }
 }
 
 void _handlePWMMessage(JsonDocument& pwmMsg) {
@@ -139,7 +156,7 @@ void processWSMessage(JsonDocument& jsonMsg) {
       _handleDIOMessage(jsonMsg);
     }
     else if (jsonMsg["type"] == "Gyro") {
-      // TODO Gyro
+      _handleGyroMessage(jsonMsg);
     }
     else if (jsonMsg["type"] == "XRPMotor") {
       _handleXRPMotorMessage(jsonMsg);
@@ -171,6 +188,52 @@ std::string makeDIOMessage(int deviceId, bool value) {
   msg["type"] = "DIO";
   msg["device"] = std::to_string(deviceId);
   msg["data"]["<>value"] = value;
+
+  std::string ret;
+  serializeJson(msg, ret);
+  return ret;
+}
+
+std::string makeGyroCombinedMessage(float rates[3], float angles[3]) {
+  StaticJsonDocument<400> msg;
+  msg["type"] = "Gyro";
+  msg["device"] = _gyroIdent;
+  msg["data"][">rate_x"] = rates[0];
+  msg["data"][">rate_y"] = rates[1];
+  msg["data"][">rate_z"] = rates[2];
+  msg["data"][">angle_x"] = angles[0];
+  msg["data"][">angle_y"] = angles[1];
+  msg["data"][">angle_z"] = angles[2];
+
+  std::string ret;
+  serializeJson(msg, ret);
+  return ret;
+}
+
+std::string makeGyroSingleMessage(ws_gyro_axis_t axis, float rate, float angle) {
+  StaticJsonDocument<400> msg;
+  std::string rateFieldName;
+  std::string angleFieldName;
+
+  switch (axis) {
+    case AXIS_X:
+      rateFieldName = ">rate_x";
+      angleFieldName = ">angle_x";
+      break;
+    case AXIS_Y:
+      rateFieldName = ">rate_y";
+      angleFieldName = ">angle_y";
+      break;
+    case AXIS_Z:
+      rateFieldName = ">rate_z";
+      angleFieldName = ">angle_z";
+      break;
+  }
+
+  msg["type"] = "Gyro";
+  msg["device"] = _gyroIdent;
+  msg["data"][rateFieldName] = rate;
+  msg["data"][angleFieldName] = angle;
 
   std::string ret;
   serializeJson(msg, ret);

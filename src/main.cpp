@@ -4,8 +4,11 @@
 #include <WebSockets4WebServer.h>
 #include <WebSocketsServer.h>
 #include <WiFi.h>
+#include <Wire.h>
+
 #include <vector>
 
+#include "imu.h"
 #include "robot.h"
 #include "wpilibws.h"
 
@@ -94,7 +97,18 @@ void setup() {
 
   Serial.begin(115200);
 
+  // Set up the I2C pins
+  Wire1.setSCL(19);
+  Wire1.setSDA(18);
+  Wire1.begin();
+
   delay(2000);
+
+  // Initialize IMU
+  Serial.println("[IMU] Initializing IMU");
+  xrp::imuInit(IMU_I2C_ADDR, &Wire1);
+
+  // TODO Calibrate IMU
 
   // Busy-loop if there's no WiFi hardware
   if (WiFi.status() == WL_NO_MODULE) {
@@ -148,7 +162,9 @@ void loop() {
   // Disable the robot when we no longer have a connection
   int numConnectedClients = wsServer.connectedClients();
   if (lastCheckedNumClients > 0 && numConnectedClients == 0) {
-    xrp::setEnabled(false);
+    xrp::robotSetEnabled(false);
+    xrp::imuSetEnabled(false);
+    outboundMessages.clear();
   }
   lastCheckedNumClients = numConnectedClients;
 
@@ -168,6 +184,14 @@ void loop() {
     if (updatedData & XRP_DATA_DIO) {
       // User button is on DIO 0
       sendMessage(wpilibws::makeDIOMessage(0, xrp::isUserButtonPressed()));
+    }
+
+    // Read Gyro Data
+    if (xrp::imuPeriodic()) {
+      float rateZ = xrp::gyroGetRateZ();
+      float angleZ = xrp::gyroGetAngleZ();
+      
+      sendMessage(wpilibws::makeGyroSingleMessage(wpilibws::AXIS_Z, rateZ, angleZ));
     }
 
   }

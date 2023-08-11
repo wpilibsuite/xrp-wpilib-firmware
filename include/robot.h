@@ -56,7 +56,7 @@ bool robotInitialized();
 uint8_t robotPeriodic();
 
 // Robot control
-void setEnabled(bool enabled);
+void robotSetEnabled(bool enabled);
 
 // Encoder Related
 void configureEncoder(int deviceId, int chA, int chB);

@@ -249,7 +249,7 @@ bool isUserButtonPressed() {
   return digitalRead(XRP_BUILTIN_BUTTON) == LOW;
 }
 
-void setEnabled(bool enabled) {
+void robotSetEnabled(bool enabled) {
   // Prevent motors from starting with arbitrary values when enabling
   if (!_robotEnabled && enabled) {
     _pwmShutoff();
