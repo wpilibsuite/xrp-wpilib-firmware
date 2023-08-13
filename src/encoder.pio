@@ -1,0 +1,69 @@
+.program encoder
+.origin 0
+
+; Jump Table
+; Program Counter is moved to memory addr 0000 - 1111, based on
+; previous (left 2) bits and current (right 2 bits) pin states
+
+; block 00xx
+jmp read ; 00 -> 00 No change, continue
+jmp decr ; 00 -> 01 Reverse, decrement count
+jmp incr ; 00 -> 10 Forward, increment count
+jmp read ; 00 -> 11 Impossible, continue
+
+; block 01xx
+jmp incr ; 01 -> 00 Forward, increment count
+jmp read ; 01 -> 01 No change, continue
+jmp read ; 01 -> 10 Impossible, continue
+jmp decr ; 01 -> 11 Reverse, Decrement count
+
+; block 10xx
+jmp decr ; 10 -> 00 Reverse, decrement count
+jmp read ; 10 -> 01 Impossible, continue
+jmp read ; 10 -> 10 No change, continue
+jmp incr ; 10 -> 11 Forward, increment count
+
+; block 11xx
+jmp read ; 11 -> 00 Impossible, continue
+jmp incr ; 11 -> 01 Forward, increment count
+jmp decr ; 11 -> 10 Reverse, decrement count
+jmp read ; 11 -> 11 No change, continue
+
+read:
+    mov osr, isr
+    mov isr, x
+    push noblock
+    out isr, 2
+    in pins, 2
+    mov pc, isr
+
+decr: ; There is no explicit increment instruction
+    jmp x--, decr_nop
+
+decr_nop:
+    jmp read
+
+incr:
+    mov x, ~x
+    jmp x--, incr_nop
+
+incr_nop:
+    mov x, ~x
+    jmp read
+
+jmp read
+jmp read
+jmp read
+jmp read
+
+% c-sdk {
+static inline void encoder_program_init(PIO pio, uint sm, uint offset, uint base_pin) {
+    pio_sm_config c = encoder_program_get_default_config(offset);
+
+    sm_config_set_in_pins(&c, base_pin);
+    sm_config_set_in_shift(&c, false, false, 32);
+    sm_config_set_out_shift(&c, true, false, 32);
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}
