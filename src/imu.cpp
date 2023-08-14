@@ -1,5 +1,7 @@
 #include "imu.h"
 
+#define IMU_DEFAULT_CALIBRATION_TIME_MS 3000
+
 namespace xrp {
 
 unsigned long _imuUpdatePeriod = 1000 / IMU_UPDATE_RATE_HZ;
@@ -40,6 +42,11 @@ void imuInit(uint8_t addr, TwoWire *theWire) {
     _imuReady = true;
     Serial.println("--- IMU ---");
     Serial.println("LSM6DSOX detected");
+    
+    Serial.println("Setting update rate to 208Hz");
+    _lsm6.setGyroDataRate(LSM6DS_RATE_208_HZ);
+    _lsm6.setAccelDataRate(LSM6DS_RATE_208_HZ);
+
     Serial.print("Accel Range: ");
     switch (_lsm6.getAccelRange()) {
       case LSM6DS_ACCEL_RANGE_2_G:
@@ -77,6 +84,61 @@ void imuInit(uint8_t addr, TwoWire *theWire) {
         break;
     }
   }
+}
+
+void imuCalibrate(unsigned long calibrationTimeMs) {
+  unsigned long loopDelayTime = 1000 / 208;
+
+  if (calibrationTimeMs == 0) {
+    calibrationTimeMs = IMU_DEFAULT_CALIBRATION_TIME_MS;
+  }
+
+  Serial.printf("[IMU] Beginning calibration. Running for %u ms\n", calibrationTimeMs);
+  
+  float gyroAvgValues[3] = {0, 0, 0};
+  int numVals = 0;
+
+  bool ledBlinkState = true;
+
+  unsigned long startTime = millis();
+  unsigned long lastBlinkTime = startTime;
+
+  digitalWrite(LED_BUILTIN, HIGH);
+  while (millis() < startTime + calibrationTimeMs) {
+    // Handle the blink (the delay at the end of this loop is much
+    // smaller than what we can visually see anyway)
+    if (millis() - lastBlinkTime > 100) {
+      ledBlinkState = !ledBlinkState;
+      digitalWrite(LED_BUILTIN, ledBlinkState ? HIGH : LOW);
+      lastBlinkTime = millis();
+    }
+
+    // Get IMU data
+    sensors_event_t accel;
+    sensors_event_t gyro;
+    sensors_event_t temp;
+
+    _lsm6.getEvent(&accel, &gyro, &temp);
+
+    gyroAvgValues[0] += _radToDeg(gyro.gyro.x);
+    gyroAvgValues[1] += _radToDeg(gyro.gyro.y);
+    gyroAvgValues[2] += _radToDeg(gyro.gyro.z);
+
+    numVals++;
+    delay(loopDelayTime);
+  }
+
+  _gyroOffsetsDegPerSec[0] = gyroAvgValues[0] / numVals;
+  _gyroOffsetsDegPerSec[1] = gyroAvgValues[1] / numVals;
+  _gyroOffsetsDegPerSec[2] = gyroAvgValues[2] / numVals;
+
+  Serial.printf("[IMU] Offsets: X(%f) Y(%f) Z(%f)\n",
+      _gyroOffsetsDegPerSec[0],
+      _gyroOffsetsDegPerSec[1],
+      _gyroOffsetsDegPerSec[2]);
+  Serial.println("[IMU] Calibration Complete");
+
+  digitalWrite(LED_BUILTIN, LOW);
 }
 
 bool imuPeriodic() {

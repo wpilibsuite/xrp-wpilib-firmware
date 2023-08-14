@@ -14,6 +14,7 @@ void imuSetEnabled(bool enabled);
 bool imuIsEnabled();
 
 void imuInit(uint8_t addr, TwoWire *theWire);
+void imuCalibrate(unsigned long calibrationTime);
 
 bool imuPeriodic();
 
