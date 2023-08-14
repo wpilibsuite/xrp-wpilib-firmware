@@ -1,5 +1,5 @@
 #include "robot.h"
-#include "quadrature.pio.h"
+#include "encoder.pio.h"
 #include "wpilibws.h"
 
 #include <map>
@@ -23,7 +23,7 @@ Servo servo2;
 // Encoder PIO
 PIO _encoderPio = nullptr;
 uint _encoderPgmOffset = 0;
-PIOProgram _encoderPgm(&quadrature_program);
+PIOProgram _encoderPgm(&encoder_program);
 
 // Encoders
 std::vector<std::pair<int, int> > _encoderPins = {
@@ -41,7 +41,6 @@ std::map<int, int> _encoderWPILibChannelToNativeMap;
 
 // Internal helper functions
 bool _initEncoders() {
-  // TODO Use the PIOProgram wrapper here
   for (int i = 0; i < 4; i++) {
     int _pgmOffset = -1;
     int _smIdx = -1;
@@ -58,16 +57,23 @@ bool _initEncoders() {
 
     // Init the program
     auto pins = _encoderPins.at(i);
-    quadrature_program_init(_pio, _smIdx, _pgmOffset, pins.first, pins.second);
+    encoder_program_init(_pio, _smIdx, _pgmOffset, pins.first);
   }
 
   return true;
-  // uint offset0 = pio_add_program(_encoderPio, &quadrature_program);
-  
-  // quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_L, offset0, 4, 5);
-  // quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_R, offset0, 12, 13);
-  // quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_3, offset0, 0, 1);
-  // quadrature_program_init(_encoderPio, ENC_SM_IDX_MOTOR_4, offset0, 8, 9);
+}
+
+int _readEncoderInternal(PIO _pio, uint _smIdx) {
+  int count;
+
+  // Read 5 times to get past buffer
+  count = pio_sm_get_blocking(_pio, _smIdx);
+  count = pio_sm_get_blocking(_pio, _smIdx);
+  count = pio_sm_get_blocking(_pio, _smIdx);
+  count = pio_sm_get_blocking(_pio, _smIdx);
+  count = pio_sm_get_blocking(_pio, _smIdx);
+
+  return count;
 }
 
 bool _readEncodersInternal() {
@@ -78,9 +84,8 @@ bool _readEncodersInternal() {
     uint _smIdx = _encoderStateMachineIdx[i];
 
     if (_pio != nullptr) {
-      pio_sm_exec_wait_blocking(_pio, _smIdx, pio_encode_in(pio_x, 32));
-      _encoderValues[i] = pio_sm_get_blocking(_pio, _smIdx);
-
+      _encoderValues[i] = _readEncoderInternal(_pio, _smIdx);
+      
       if (_encoderValues[i] != _encoderValuesLast[i]) {
         hasChange = true;
       }
