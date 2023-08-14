@@ -86,20 +86,33 @@ void imuInit(uint8_t addr, TwoWire *theWire) {
   }
 }
 
-void imuCalibrate(unsigned long calibrationTime) {
+void imuCalibrate(unsigned long calibrationTimeMs) {
   unsigned long loopDelayTime = 1000 / 208;
 
-  if (calibrationTime == 0) {
-    calibrationTime = IMU_DEFAULT_CALIBRATION_TIME_MS;
+  if (calibrationTimeMs == 0) {
+    calibrationTimeMs = IMU_DEFAULT_CALIBRATION_TIME_MS;
   }
 
-  Serial.printf("[IMU] Beginning calibration. Running for %u ms\n", calibrationTime);
+  Serial.printf("[IMU] Beginning calibration. Running for %u ms\n", calibrationTimeMs);
   
   float gyroAvgValues[3] = {0, 0, 0};
   int numVals = 0;
 
+  bool ledBlinkState = true;
+
   unsigned long startTime = millis();
-  while (millis() < startTime + calibrationTime) {
+  unsigned long lastBlinkTime = startTime;
+
+  digitalWrite(LED_BUILTIN, HIGH);
+  while (millis() < startTime + calibrationTimeMs) {
+    // Handle the blink (the delay at the end of this loop is much
+    // smaller than what we can visually see anyway)
+    if (millis() - lastBlinkTime > 100) {
+      ledBlinkState = !ledBlinkState;
+      digitalWrite(LED_BUILTIN, ledBlinkState ? HIGH : LOW);
+      lastBlinkTime = millis();
+    }
+
     // Get IMU data
     sensors_event_t accel;
     sensors_event_t gyro;
@@ -124,6 +137,8 @@ void imuCalibrate(unsigned long calibrationTime) {
       _gyroOffsetsDegPerSec[1],
       _gyroOffsetsDegPerSec[2]);
   Serial.println("[IMU] Calibration Complete");
+
+  digitalWrite(LED_BUILTIN, LOW);
 }
 
 bool imuPeriodic() {

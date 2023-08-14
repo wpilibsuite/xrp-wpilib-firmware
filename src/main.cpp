@@ -109,7 +109,7 @@ void setup() {
   xrp::imuInit(IMU_I2C_ADDR, &Wire1);
 
   Serial.println("[IMU] Beginning IMU calibration");
-  xrp::imuCalibrate(0); // Use the default calibration time
+  xrp::imuCalibrate(5000);
 
   // Busy-loop if there's no WiFi hardware
   if (WiFi.status() == WL_NO_MODULE) {
