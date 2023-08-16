@@ -42,6 +42,11 @@ bool imuIsReady() {
 }
 
 void imuSetEnabled(bool enabled) {
+  // If going from false to true, reset the gyro
+  if (!_imuEnabled && enabled) {
+    gyroReset();
+  }
+
   _imuEnabled = enabled;
   Serial.printf("[IMU] %s\n", enabled ? "Enabling" : "Disabling");
 }
@@ -161,6 +166,9 @@ void imuCalibrate(unsigned long calibrationTimeMs) {
   _gyroOffsetsDPS[1] = gyroAvgValues[1] / numVals;
   _gyroOffsetsDPS[2] = gyroAvgValues[2] / numVals;
 
+  // Remove 1G from the vertical axis (assumed to be Z)
+  _accelOffsetsG[2] -= 1.0;
+
   Serial.printf("[IMU] Gyro Offsets(dps): X(%f) Y(%f) Z(%f), Accel Offsets(g): X(%f) Y(%f) Z(%f)\n",
       _gyroOffsetsDPS[0],
       _gyroOffsetsDPS[1],
@@ -172,6 +180,9 @@ void imuCalibrate(unsigned long calibrationTimeMs) {
 
   digitalWrite(LED_BUILTIN, LOW);
 }
+
+unsigned long _imuLoopTime = 0;
+int _imuLoopCount = 0;
 
 void imuPeriodic() {
   // Initialize the filter if this is the first time we are running through the periodic
@@ -202,10 +213,20 @@ void imuPeriodic() {
     _accelG[2] = _accelToG(accel.acceleration.z) - _accelOffsetsG[2];
 
     // Update the filter, which will compute orientation
-    _ahrsFilter.updateIMU(_accelG[0], _accelG[1], _accelG[2], _gyroRatesDPS[0], _gyroRatesDPS[1], _gyroRatesDPS[2]);
+    _ahrsFilter.updateIMU(_gyroRatesDPS[0], _gyroRatesDPS[1], _gyroRatesDPS[2], _accelG[0], _accelG[1], _accelG[2]);
 
     // Increment the previous time so that we keep proper pace
     _microsPrevious = _microsPrevious + _microsPerReading;
+
+    // Stats
+    _imuLoopTime += micros() - microsNow;
+    _imuLoopCount++;
+
+    if (_imuLoopCount > 100) {
+      Serial.printf("[IMU] Avg AHRS Update Time: %u us\n", _imuLoopTime / _imuLoopCount);
+      _imuLoopCount = 0;
+      _imuLoopTime = 0;
+    }
   }
 }
 
@@ -379,6 +400,7 @@ void imuResetYaw() {
 }
 
 void gyroReset() {
+  Serial.println("[IMU] Resetting Gyro");
   imuResetRoll();
   imuResetPitch();
   imuResetYaw();
