@@ -1,6 +1,10 @@
 #include "imu.h"
 
+#include <MadgwickAHRS.h>
+
 #define IMU_DEFAULT_CALIBRATION_TIME_MS 3000
+
+#define IMU_MADGWICK_LOOP_FREQ_HZ 25
 
 namespace xrp {
 
@@ -12,12 +16,25 @@ bool _imuEnabled = false;
 unsigned long _lastIMUUpdateTime = 0;
 bool _imuOnePassComplete = false;
 
-float _gyroOffsetsDegPerSec[3] = {0, 0, 0};
-float _gyroRatesDegPerSec[3] = {0, 0, 0};
+float _accelOffsetsG[3] = {0, 0, 0};
+float _accelG[3] = {0, 0, 0};
+
+float _gyroOffsetsDPS[3] = {0, 0, 0};
+float _gyroRatesDPS[3] = {0, 0, 0};
 float _gyroAnglesDeg[3] = {0, 0, 0};
+
+float _ahrsOffsets[3] = {0, 0, 0};
+
+Madgwick _ahrsFilter;
+bool _filterStarted = false;
+unsigned long _microsPerReading, _microsPrevious;
 
 float _radToDeg(float angleRad) {
   return angleRad * 180.0 / PI;
+}
+
+float _accelToG(float accelMS2) {
+  return accelMS2 / 9.80665;
 }
 
 bool imuIsReady() {
@@ -96,6 +113,8 @@ void imuCalibrate(unsigned long calibrationTimeMs) {
   Serial.printf("[IMU] Beginning calibration. Running for %u ms\n", calibrationTimeMs);
   
   float gyroAvgValues[3] = {0, 0, 0};
+  float accelAvgValues[3] = {0, 0, 0};
+
   int numVals = 0;
 
   bool ledBlinkState = true;
@@ -119,7 +138,13 @@ void imuCalibrate(unsigned long calibrationTimeMs) {
     sensors_event_t temp;
 
     _lsm6.getEvent(&accel, &gyro, &temp);
+    
+    // Accelerometer averages
+    accelAvgValues[0] += _accelToG(accel.acceleration.x);
+    accelAvgValues[1] += _accelToG(accel.acceleration.y);
+    accelAvgValues[2] += _accelToG(accel.acceleration.z);
 
+    // Gyro averages
     gyroAvgValues[0] += _radToDeg(gyro.gyro.x);
     gyroAvgValues[1] += _radToDeg(gyro.gyro.y);
     gyroAvgValues[2] += _radToDeg(gyro.gyro.z);
@@ -128,91 +153,235 @@ void imuCalibrate(unsigned long calibrationTimeMs) {
     delay(loopDelayTime);
   }
 
-  _gyroOffsetsDegPerSec[0] = gyroAvgValues[0] / numVals;
-  _gyroOffsetsDegPerSec[1] = gyroAvgValues[1] / numVals;
-  _gyroOffsetsDegPerSec[2] = gyroAvgValues[2] / numVals;
+  _accelOffsetsG[0] = accelAvgValues[0] / numVals;
+  _accelOffsetsG[1] = accelAvgValues[1] / numVals;
+  _accelOffsetsG[2] = accelAvgValues[2] / numVals;
 
-  Serial.printf("[IMU] Offsets: X(%f) Y(%f) Z(%f)\n",
-      _gyroOffsetsDegPerSec[0],
-      _gyroOffsetsDegPerSec[1],
-      _gyroOffsetsDegPerSec[2]);
+  _gyroOffsetsDPS[0] = gyroAvgValues[0] / numVals;
+  _gyroOffsetsDPS[1] = gyroAvgValues[1] / numVals;
+  _gyroOffsetsDPS[2] = gyroAvgValues[2] / numVals;
+
+  Serial.printf("[IMU] Gyro Offsets(dps): X(%f) Y(%f) Z(%f), Accel Offsets(g): X(%f) Y(%f) Z(%f)\n",
+      _gyroOffsetsDPS[0],
+      _gyroOffsetsDPS[1],
+      _gyroOffsetsDPS[2],
+      _accelOffsetsG[0],
+      _accelOffsetsG[1],
+      _accelOffsetsG[2]);
   Serial.println("[IMU] Calibration Complete");
 
   digitalWrite(LED_BUILTIN, LOW);
 }
 
-bool imuPeriodic() {
+void imuPeriodic() {
+  // Initialize the filter if this is the first time we are running through the periodic
+  if (!_filterStarted) {
+    Serial.printf("[IMU] Starting Madgwick filter at %u hz\n", IMU_MADGWICK_LOOP_FREQ_HZ);
+    _microsPerReading = 1000000 / IMU_MADGWICK_LOOP_FREQ_HZ;
+    _microsPrevious = micros();
+    _ahrsFilter.begin(IMU_MADGWICK_LOOP_FREQ_HZ);
+    _filterStarted = true;
+    return;
+  }
+
+  unsigned long microsNow = micros();
+  if (microsNow - _microsPrevious >= _microsPerReading) {
+    // Read data
+    sensors_event_t accel;
+    sensors_event_t gyro;
+    sensors_event_t temp;
+
+    _lsm6.getEvent(&accel, &gyro, &temp);
+
+    _gyroRatesDPS[0] = _radToDeg(gyro.gyro.x) - _gyroOffsetsDPS[0];
+    _gyroRatesDPS[1] = _radToDeg(gyro.gyro.y) - _gyroOffsetsDPS[1];
+    _gyroRatesDPS[2] = _radToDeg(gyro.gyro.z) - _gyroOffsetsDPS[2];
+
+    _accelG[0] = _accelToG(accel.acceleration.x) - _accelOffsetsG[0];
+    _accelG[1] = _accelToG(accel.acceleration.y) - _accelOffsetsG[1];
+    _accelG[2] = _accelToG(accel.acceleration.z) - _accelOffsetsG[2];
+
+    // Update the filter, which will compute orientation
+    _ahrsFilter.updateIMU(_accelG[0], _accelG[1], _accelG[2], _gyroRatesDPS[0], _gyroRatesDPS[1], _gyroRatesDPS[2]);
+
+    // Increment the previous time so that we keep proper pace
+    _microsPrevious = _microsPrevious + _microsPerReading;
+  }
+}
+
+/**
+ * Determine if we have data ready to send upstream
+ */
+bool imuDataReady() {
   if (!_imuReady) return false;
   if (!_imuEnabled) return false;
 
   unsigned long currTime = millis();
   unsigned long dt = currTime - _lastIMUUpdateTime;
 
-  // Send the IMU data at the specified IMU_UPDATE_RATE_HZ
   if (dt < _imuUpdatePeriod) return false;
-
-  // Get IMU data
-  sensors_event_t accel;
-  sensors_event_t gyro;
-  sensors_event_t temp;
-
-  _lsm6.getEvent(&accel, &gyro, &temp);
-
-  float rateX = _radToDeg(gyro.gyro.x);
-  float rateY = _radToDeg(gyro.gyro.y);
-  float rateZ = _radToDeg(gyro.gyro.z);
-  _gyroRatesDegPerSec[0] = rateX - _gyroOffsetsDegPerSec[0];
-  _gyroRatesDegPerSec[1] = rateY - _gyroOffsetsDegPerSec[1];
-  _gyroRatesDegPerSec[2] = rateZ - _gyroOffsetsDegPerSec[2];
-
-  // We can't integrate with only a single value, so bail out
-  if (!_imuOnePassComplete) {
-    _imuOnePassComplete = true;
-    _lastIMUUpdateTime = currTime;
-    return false;
-  }
-  
-  float dtInSeconds = dt / 1000.0;
-
-  for (int i = 0; i < 3; i++) {
-    _gyroAnglesDeg[i] = _gyroAnglesDeg[i] + (_gyroRatesDegPerSec[i] * dtInSeconds);
-  }
 
   _lastIMUUpdateTime = currTime;
   return true;
 }
 
-float gyroGetAngleX() {
-  return _gyroAnglesDeg[0];
+// bool imuPeriodic() {
+//   if (!_imuReady) return false;
+//   if (!_imuEnabled) return false;
+
+//   unsigned long currTime = millis();
+//   unsigned long dt = currTime - _lastIMUUpdateTime;
+
+//   // Send the IMU data at the specified IMU_UPDATE_RATE_HZ
+//   if (dt < _imuUpdatePeriod) return false;
+
+//   // Get IMU data
+//   sensors_event_t accel;
+//   sensors_event_t gyro;
+//   sensors_event_t temp;
+
+//   _lsm6.getEvent(&accel, &gyro, &temp);
+
+//   float rateX = _radToDeg(gyro.gyro.x);
+//   float rateY = _radToDeg(gyro.gyro.y);
+//   float rateZ = _radToDeg(gyro.gyro.z);
+//   _gyroRatesDPS[0] = rateX - _gyroOffsetsDPS[0];
+//   _gyroRatesDPS[1] = rateY - _gyroOffsetsDPS[1];
+//   _gyroRatesDPS[2] = rateZ - _gyroOffsetsDPS[2];
+
+//   // We can't integrate with only a single value, so bail out
+//   if (!_imuOnePassComplete) {
+//     _imuOnePassComplete = true;
+//     _lastIMUUpdateTime = currTime;
+//     return false;
+//   }
+  
+//   float dtInSeconds = dt / 1000.0;
+
+//   for (int i = 0; i < 3; i++) {
+//     _gyroAnglesDeg[i] = _gyroAnglesDeg[i] + (_gyroRatesDPS[i] * dtInSeconds);
+//   }
+
+//   _lastIMUUpdateTime = currTime;
+//   return true;
+// }
+
+// ===============================
+// AHRS Values
+// ===============================
+
+/**
+ * Get acceleration in the X axis
+ * 
+ * @return Acceleration in X (in G)
+ */
+float imuGetAccelX() {
+  return _accelG[0];
 }
 
-float gyroGetRateX() {
-  return _gyroRatesDegPerSec[0];
+/**
+ * Get acceleration in the Y axis
+ * 
+ * @return Acceleration in Y (in G)
+ */
+float imuGetAccelY() {
+  return _accelG[1];
 }
 
-float gyroGetAngleY() {
-  return _gyroAnglesDeg[1];
+/**
+ * Get acceleration in the Z axis
+ * 
+ * @return Acceleration in Z (in G)
+ */
+float imuGetAccelZ() {
+  return _accelG[2];
 }
 
-float gyroGetRateY() {
-  return _gyroRatesDegPerSec[1];
+/**
+ * Get gyro rate in the X axis
+ * 
+ * @return Gyro rate in X (in DPS)
+ */
+float imuGetGyroRateX() {
+  return _gyroRatesDPS[0];
 }
 
-float gyroGetAngleZ() {
-  return _gyroAnglesDeg[2];
+/**
+ * Get gyro rate in the Y axis
+ * 
+ * @return Gyro rate in Y (in DPS)
+ */
+float imuGetGyroRateY() {
+  return _gyroRatesDPS[1];
 }
 
-float gyroGetRateZ() {
-  return _gyroRatesDegPerSec[2];
+/**
+ * Get gyro rate in the Z axis
+ * 
+ * @return Gyro rate in Z (in DPS)
+ */
+float imuGetGyroRateZ() {
+  return _gyroRatesDPS[2];
+}
+
+/**
+ * Get current roll angle
+ * 
+ * @return Current roll angle (in degrees)
+ */
+float imuGetRoll() {
+  return _ahrsFilter.getRoll() - _ahrsOffsets[0];
+}
+
+/**
+ * Get current pitch angle
+ * 
+ * @return Current pitch angle (in degrees)
+ */
+float imuGetPitch() {
+  return _ahrsFilter.getPitch() - _ahrsOffsets[1];
+}
+
+/**
+ * Get current yaw angle
+ * 
+ * @return Current yaw angle (in degrees)
+ */
+float imuGetYaw() {
+  return _ahrsFilter.getYaw() - _ahrsOffsets[2];
+}
+
+/**
+ * Reset the roll angle.
+ * 
+ * The AHRS filter always runs, so this basically sets an offset value
+ */
+void imuResetRoll() {
+  _ahrsOffsets[0] = _ahrsFilter.getRoll();
+}
+
+/**
+ * Reset the pitch angle.
+ * 
+ * The AHRS filter always runs, so this basically sets an offset value
+ */
+void imuResetPitch() {
+  _ahrsOffsets[1] = _ahrsFilter.getPitch();
+}
+
+/**
+ * Reset the yaw angle.
+ * 
+ * The AHRS filter always runs, so this basically sets an offset value
+ */
+void imuResetYaw() {
+  _ahrsOffsets[2] = _ahrsFilter.getYaw();
 }
 
 void gyroReset() {
-  for (int i = 0; i < 3; i++) {
-    _gyroRatesDegPerSec[i] = 0;
-    _gyroAnglesDeg[i] = 0;
-  }
-
-  _imuOnePassComplete = false;
+  imuResetRoll();
+  imuResetPitch();
+  imuResetYaw();
 }
 
 } // namespace xrp

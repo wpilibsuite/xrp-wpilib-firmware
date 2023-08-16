@@ -160,6 +160,9 @@ void loop() {
   // webServer.handleClient();
   wsServer.loop();
 
+  // TODO always run the IMU periodic routine
+  xrp::imuPeriodic();
+
   // Disable the robot when we no longer have a connection
   int numConnectedClients = wsServer.connectedClients();
   if (lastCheckedNumClients > 0 && numConnectedClients == 0) {
@@ -188,11 +191,11 @@ void loop() {
     }
 
     // Read Gyro Data
-    if (xrp::imuPeriodic()) {
-      float rateZ = xrp::gyroGetRateZ();
-      float angleZ = xrp::gyroGetAngleZ();
+    if (xrp::imuDataReady()) {
+      float rateZ = xrp::imuGetGyroRateZ();
+      float yawAngle = xrp::imuGetYaw();
       
-      sendMessage(wpilibws::makeGyroSingleMessage(wpilibws::AXIS_Z, rateZ, angleZ));
+      sendMessage(wpilibws::makeGyroSingleMessage(wpilibws::AXIS_Z, rateZ, yawAngle));
     }
 
   }

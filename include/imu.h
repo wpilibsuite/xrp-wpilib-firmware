@@ -16,16 +16,24 @@ bool imuIsEnabled();
 void imuInit(uint8_t addr, TwoWire *theWire);
 void imuCalibrate(unsigned long calibrationTime);
 
-bool imuPeriodic();
+void imuPeriodic();
+bool imuDataReady();
 
-float gyroGetAngleX();
-float gyroGetRateX();
+float imuGetAccelX();
+float imuGetAccelY();
+float imuGetAccelZ();
 
-float gyroGetAngleY();
-float gyroGetRateY();
+float imuGetGyroRateX();
+float imuGetGyroRateY();
+float imuGetGyroRateZ();
 
-float gyroGetAngleZ();
-float gyroGetRateZ();
+float imuGetRoll();
+float imuGetPitch();
+float imuGetYaw();
+
+void imuResetRoll();
+void imuResetPitch();
+void imuResetYaw();
 
 void gyroReset();
 
