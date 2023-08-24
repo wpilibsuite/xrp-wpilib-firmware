@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <LittleFS.h>
+#include <SingleFileDrive.h>
 #include <WebServer.h>
 #include <WebSockets4WebServer.h>
 #include <WebSocketsServer.h>
@@ -28,6 +30,18 @@ int _baselineUsedHeap = 0;
 
 unsigned long _avgLoopTimeUs = 0;
 unsigned long _loopTimeMeasurementCount = 0;
+
+// Generate the status text file
+void writeStatusToDisk() {
+  File f = LittleFS.open("/status.txt", "w");
+  f.printf("Chip ID: %s\n", chipID);
+  f.printf("WiFi Mode: %s\n", "AP");
+  f.printf("AP SSID: %s\n", DEFAULT_SSID);
+  f.printf("AP PASS: %s\n", "xrp-wpilib");
+ 
+  f.printf("IP Address: %s\n", WiFi.localIP().toString().c_str());
+  f.close();
+}
 
 // void handleIndexRoute() {
 //   webServer.send(200, "text/plain", "You probably want the WS interface on /wpilibws");
@@ -96,6 +110,7 @@ void setup() {
   sprintf(DEFAULT_SSID, "XRP-%s", chipID);
 
   Serial.begin(115200);
+  LittleFS.begin();
 
   // Set up the I2C pins
   Wire1.setSCL(19);
@@ -151,6 +166,10 @@ void setup() {
 
   _lastMessageStatusPrint = millis();
   _baselineUsedHeap = rp2040.getUsedHeap();
+
+  // Write current status file
+  writeStatusToDisk();
+  singleFileDrive.begin("status.txt", "XRP-Status.txt");
 }
 
 int lastCheckedNumClients = 0;
