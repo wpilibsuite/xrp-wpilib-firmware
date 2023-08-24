@@ -1,4 +1,4 @@
-# WPILib HAL Simulation - XRP Edition (Lite)
+# WPILib HAL Simulation - XRP Edition
 ## Introduction
 This repository contains a reference implementation of a XRP robot that can be controlled via the WPILib HALSim WebSocket extension.
 
