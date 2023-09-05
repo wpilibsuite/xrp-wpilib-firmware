@@ -14,11 +14,19 @@
 #include "robot.h"
 #include "wpilibws.h"
 
+// Resource strings
+extern "C" {
+const unsigned char* GetResource_index_html(size_t* len);
+const unsigned char* GetResource_normalize_css(size_t* len);
+const unsigned char* GetResource_skeleton_css(size_t* len);
+const unsigned char* GetResource_xrp_js(size_t* len);
+}
+
 char chipID[20];
 char DEFAULT_SSID[32];
 
 // HTTP and WS Servers
-WebServer webServer(3300);
+WebServer webServer(5000);
 WebSocketsServer wsServer(3300);
 
 std::vector<std::string> outboundMessages;
@@ -46,6 +54,31 @@ void writeStatusToDisk() {
 // void handleIndexRoute() {
 //   webServer.send(200, "text/plain", "You probably want the WS interface on /wpilibws");
 // }
+
+// ==================================================
+// Web Server Management Functions
+// ==================================================
+void setupWebServerRoutes() {
+  webServer.on("/", []() {
+    size_t len;
+    webServer.send(200, "text/html", GetResource_index_html(&len), len);
+  });
+
+  webServer.on("/normalize.css", []() {
+    size_t len;
+    webServer.send(200, "text/css", GetResource_normalize_css(&len), len);
+  });
+
+  webServer.on("/skeleton.css", []() {
+    size_t len;
+    webServer.send(200, "text/css", GetResource_skeleton_css(&len), len);
+  });
+
+  webServer.on("/xrp.js", []() {
+    size_t len;
+    webServer.send(200, "text/javascript", GetResource_xrp_js(&len), len);
+  });
+}
 
 void sendMessage(std::string msg) {
   outboundMessages.push_back(msg);
@@ -144,15 +177,11 @@ void setup() {
   }
 
   // Set up HTTP server routes
-  // Serial.println("[NET] Setting up Web Server routes");
-  // webServer.on("/", handleIndexRoute);
+  Serial.println("[NET] Setting up Config webserver");
+  setupWebServerRoutes();
 
-  // Set up WS routing
-  // Serial.println("[NET] Setting up WebSocket routing");
-  // webServer.addHook(wsServer.hookForWebserver("/wpilibws", handleWSEvent));
-
-  // Serial.println("[NET] Starting Web Server on port 3300");
-  // webServer.begin();
+  webServer.begin();
+  Serial.println("[NET] Config webserver listening on *:5000");
 
   Serial.println("[NET] Setting up WS Server");
   wsServer.onEvent(handleWSEvent);
@@ -176,7 +205,7 @@ int lastCheckedNumClients = 0;
 void loop() {
   unsigned long loopStartTime = micros();
 
-  // webServer.handleClient();
+  webServer.handleClient();
   wsServer.loop();
 
   // TODO always run the IMU periodic routine
