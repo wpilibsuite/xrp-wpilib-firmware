@@ -10,15 +10,27 @@
 
 #include <vector>
 
+#include "config.h"
 #include "imu.h"
 #include "robot.h"
 #include "wpilibws.h"
 
+// Resource strings
+extern "C" {
+const unsigned char* GetResource_index_html(size_t* len);
+const unsigned char* GetResource_normalize_css(size_t* len);
+const unsigned char* GetResource_skeleton_css(size_t* len);
+const unsigned char* GetResource_xrp_js(size_t* len);
+}
+
 char chipID[20];
 char DEFAULT_SSID[32];
 
+XRPConfiguration config;
+NetworkMode netConfigResult;
+
 // HTTP and WS Servers
-WebServer webServer(3300);
+WebServer webServer(5000);
 WebSocketsServer wsServer(3300);
 
 std::vector<std::string> outboundMessages;
@@ -35,9 +47,14 @@ unsigned long _loopTimeMeasurementCount = 0;
 void writeStatusToDisk() {
   File f = LittleFS.open("/status.txt", "w");
   f.printf("Chip ID: %s\n", chipID);
-  f.printf("WiFi Mode: %s\n", "AP");
-  f.printf("AP SSID: %s\n", DEFAULT_SSID);
-  f.printf("AP PASS: %s\n", "xrp-wpilib");
+  f.printf("WiFi Mode: %s\n", netConfigResult == NetworkMode::AP ? "AP" : "STA");
+  if (netConfigResult == NetworkMode::AP) {
+    f.printf("AP SSID: %s\n", config.networkConfig.defaultAPName.c_str());
+    f.printf("AP PASS: %s\n", config.networkConfig.defaultAPPassword.c_str());
+  }
+  else {
+    f.printf("Connected to %s\n", WiFi.SSID().c_str());
+  }
  
   f.printf("IP Address: %s\n", WiFi.localIP().toString().c_str());
   f.close();
@@ -46,6 +63,64 @@ void writeStatusToDisk() {
 // void handleIndexRoute() {
 //   webServer.send(200, "text/plain", "You probably want the WS interface on /wpilibws");
 // }
+
+// ==================================================
+// Web Server Management Functions
+// ==================================================
+void setupWebServerRoutes() {
+  webServer.on("/", []() {
+    size_t len;
+    webServer.send(200, "text/html", GetResource_index_html(&len), len);
+  });
+
+  webServer.on("/normalize.css", []() {
+    size_t len;
+    webServer.send(200, "text/css", GetResource_normalize_css(&len), len);
+  });
+
+  webServer.on("/skeleton.css", []() {
+    size_t len;
+    webServer.send(200, "text/css", GetResource_skeleton_css(&len), len);
+  });
+
+  webServer.on("/xrp.js", []() {
+    size_t len;
+    webServer.send(200, "text/javascript", GetResource_xrp_js(&len), len);
+  });
+
+  webServer.on("/getconfig", []() {
+    File f = LittleFS.open("/config.json", "r");
+    if (webServer.streamFile(f, "text/json") != f.size()) {
+      Serial.println("[WEB] Sent less data than expected for /getconfig");
+    }
+    f.close();
+  });
+
+  webServer.on("/resetconfig", []() {
+    if (webServer.method() != HTTP_POST) {
+      webServer.send(405, "text/plain", "Method Not Allowed");
+      return;
+    }
+    File f = LittleFS.open("/config.json", "w");
+    f.print(generateDefaultConfig(DEFAULT_SSID).toJsonString().c_str());
+    f.close();
+    webServer.send(200, "text/plain", "OK");
+  });
+
+  webServer.on("/saveconfig", []() {
+    if (webServer.method() != HTTP_POST) {
+      webServer.send(405, "text/plain", "Method Not Allowed");
+      return;
+    }
+    auto postBody = webServer.arg("plain");
+    File f = LittleFS.open("/config.json", "w");
+    f.print(postBody);
+    f.close();
+    Serial.println("[CONFIG] Configuration Updated Remotely");
+
+    webServer.send(200, "text/plain", "OK");
+  });
+}
 
 void sendMessage(std::string msg) {
   outboundMessages.push_back(msg);
@@ -119,6 +194,9 @@ void setup() {
 
   delay(2000);
 
+  // Read Config
+  config = loadConfiguration(DEFAULT_SSID);
+
   // Initialize IMU
   Serial.println("[IMU] Initializing IMU");
   xrp::imuInit(IMU_I2C_ADDR, &Wire1);
@@ -134,25 +212,26 @@ void setup() {
 
   // Set up WiFi AP
   WiFi.setHostname("XRP");
-  bool result = WiFi.softAP(DEFAULT_SSID, "xrp-wpilib");
-  if (result) {
-    Serial.println("[NET] WiFi AP Ready");
-  }
-  else {
-    Serial.println("[NET] AP Set up failed");
-    while (true);
-  }
+
+  // Use configuration information
+  netConfigResult = configureNetwork(config);
+  Serial.printf("[NET] Actual WiFi Mode: %s\n", netConfigResult == NetworkMode::AP ? "AP" : "STA");
+
+  // bool result = WiFi.softAP(DEFAULT_SSID, "xrp-wpilib");
+  // if (result) {
+  //   Serial.println("[NET] WiFi AP Ready");
+  // }
+  // else {
+  //   Serial.println("[NET] AP Set up failed");
+  //   while (true);
+  // }
 
   // Set up HTTP server routes
-  // Serial.println("[NET] Setting up Web Server routes");
-  // webServer.on("/", handleIndexRoute);
+  Serial.println("[NET] Setting up Config webserver");
+  setupWebServerRoutes();
 
-  // Set up WS routing
-  // Serial.println("[NET] Setting up WebSocket routing");
-  // webServer.addHook(wsServer.hookForWebserver("/wpilibws", handleWSEvent));
-
-  // Serial.println("[NET] Starting Web Server on port 3300");
-  // webServer.begin();
+  webServer.begin();
+  Serial.println("[NET] Config webserver listening on *:5000");
 
   Serial.println("[NET] Setting up WS Server");
   wsServer.onEvent(handleWSEvent);
@@ -176,7 +255,7 @@ int lastCheckedNumClients = 0;
 void loop() {
   unsigned long loopStartTime = micros();
 
-  // webServer.handleClient();
+  webServer.handleClient();
   wsServer.loop();
 
   // TODO always run the IMU periodic routine
