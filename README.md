@@ -31,24 +31,7 @@ For ideal use, the XRP should be placed on a flat surface prior to power up, and
 Once the XRP is up and running, the Access Point should appear in the list of available WiFi networks. The XRP is available at the IP address 192.168.42.1.
 
 #### Note
-As of 8/24/2023, your robot program needs to be updated with the following changes:
-
-In your `build.gradle` file, add the following lines immediately after the `plugin { }` block near the top of the file. This will force your robot program to use the latest development version of WPILib (this is updated with every commit to `main`). Before connecting to the XRP, you should initiate a build while connected to the internet to ensure the right packages get downloaded.
-
-```
-wpi.maven.useLocal = false
-wpi.maven.useDevelopment = true
-wpi.versions.wpilibVersion = '2023.+'
-wpi.versions.wpimathVersion = '2023.+'
-```
-
-Again in your `build.gradle` file, update the line that starts with `wpi.sim.envVar("HALSIMWS_HOST", ...)` with `192.168.42.1` as the IP address.
-
-Immediately below that, add the following line: `wpi.sim.envVar("HALSIMWS_FILTERS", "Gyro,Encoder,DriverStation,DIO,AIO,XRPMotor,XRPServo")`
-
-After this, your project should be ready to run. You can also see https://github.com/bb-frc-workshops/xrp-demo-bot/blob/main/build.gradle for an example build.gradle file (and example project)
-
-An upcoming Alpha build of WPILib 2024 will have all these changes baked in, and users will be able to use the built in templates and examples as is.
+As of 9/6/2023, you can use the [2024 Alpha 1 version](https://github.com/wpilibsuite/allwpilib/releases/tag/v2024.0.0-alpha-1) (or later) of WPILib to write XRP programs. There are also examples and templates (currently Java only) available (look for "XRP" in the examples/templates dropdown when creating a new project).
 
 ## Built-in IO Mapping
 
