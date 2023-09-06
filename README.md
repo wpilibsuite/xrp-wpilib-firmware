@@ -22,13 +22,24 @@ The firmware provides an endpoint for the WPILib Simulation layer that allows WP
 
 Upon boot up, the following will happen:
 * The IMU will calibrate itself. This lasts approximately 3-5 seconds, and will be indicated by the green LED rapidly blinking.
-* A WiFi access point will be created
-  * The Access Point will have an SSID of the form "XRP-AAAA-BBBB" where "AAAA-BBBB" are hexadecimal digits representing the unique ID of a particular XRP board
-  * The password for the access point is "xrp-wpilib" (without the quotes)
+* The network will be configured
+  * By default, a WiFi Access point will be created
+    * The Access Point will have an SSID of the form "XRP-AAAA-BBBB" where "AAAA-BBBB" are hexadecimal digits representing the unique ID of a particular XRP board
+    * The password for the access point is set to "xrp-wpilib" (without the quotes)
+  * If set as such (see the section on XRP Configuration), the XRP will either start a custom-named AP, or connect to an existing network
 
 For ideal use, the XRP should be placed on a flat surface prior to power up, and if necessary, users can hit the reset button to restart the firmware and IMU calibration process.
 
-Once the XRP is up and running, the Access Point should appear in the list of available WiFi networks. The XRP is available at the IP address 192.168.42.1.
+If setup as an Access Point, the configured AP name should appear in the list of available WiFi networks. The XRP will be available at the IP address 192.168.42.1.
+
+If setup in STA mode (i.e. connected to an existing network), the IP address can be determined by either using a tool like Angry IP Scanner, or (more easily), by connecting the XRP to a computer, navigating to the PICODISK removable drive and opening the `xrp-status.txt` file. This file contains information about which network the XRP is connected to, as well as the IP address.
+
+### XRP Configuration
+The XRP provides a simple web-based configuration screen that allows users to adjust the network settings. This screen is available at `http://<IP ADDRESS OF XRP>:5000`. By default, this will be `http://192.168.42.1:5000`.
+
+Users can manually edit the JSON configuration to change the AP name/password, or provide a list of networks to connect to in STA mode. Note that an AP name and password must always be provided as the XRP will fallback to generating an AP if it cannot connect to any listed networks. The `mode` field can be switched between `AP` or `STA` depending on the user's preference.
+
+After saving changes, make sure the restart the XRP.
 
 #### Note
 As of 9/6/2023, you can use the [2024 Alpha 1 version](https://github.com/wpilibsuite/allwpilib/releases/tag/v2024.0.0-alpha-1) (or later) of WPILib to write XRP programs. There are also examples and templates (currently Java only) available (look for "XRP" in the examples/templates dropdown when creating a new project).
