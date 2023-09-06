@@ -13,7 +13,10 @@ window.onload = () => {
             method: "post"
         })
         .then(() => {
-            loadConfig();
+            loadConfig()
+            .then(() => {
+                alert("Configuration reset to default. Please reset the XRP");
+            });
         });
     };
     
@@ -43,7 +46,7 @@ window.onload = () => {
     loadConfig();
     
     function loadConfig() {
-        fetch("/getconfig")
+        return fetch("/getconfig")
         .then((response) => response.json())
         .then((xrpConfigJson) => {
             configJsonEntry.value = JSON.stringify(xrpConfigJson, null, 4);
