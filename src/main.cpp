@@ -3,9 +3,8 @@
 #include <LittleFS.h>
 #include <SingleFileDrive.h>
 #include <WebServer.h>
-#include <WebSockets4WebServer.h>
-#include <WebSocketsServer.h>
 #include <WiFi.h>
+#include <WiFiUdp.h>
 #include <Wire.h>
 
 #include <vector>
@@ -13,7 +12,7 @@
 #include "config.h"
 #include "imu.h"
 #include "robot.h"
-#include "wpilibws.h"
+#include "wpilibudp.h"
 
 // Resource strings
 extern "C" {
@@ -29,11 +28,16 @@ char DEFAULT_SSID[32];
 XRPConfiguration config;
 NetworkMode netConfigResult;
 
-// HTTP and WS Servers
+// HTTP server
 WebServer webServer(5000);
-WebSocketsServer wsServer(3300);
 
-std::vector<std::string> outboundMessages;
+// UDP
+WiFiUDP udp;
+char udpPacketBuf[UDP_TX_PACKET_MAX_SIZE + 1];
+IPAddress udpRemoteAddr;
+uint16_t udpRemotePort;
+
+// std::vector<std::string> outboundMessages;
 
 // TEMP: Status
 unsigned long _wsMessageCount = 0;
@@ -60,9 +64,33 @@ void writeStatusToDisk() {
   f.close();
 }
 
-// void handleIndexRoute() {
-//   webServer.send(200, "text/plain", "You probably want the WS interface on /wpilibws");
-// }
+// ==================================================
+// UDP Management Functions
+// ==================================================
+
+// Update the remote UDP socket information (used to send data upstream)
+void updateRemoteInfo() {
+  // Update the remote address if needed
+  if (!udpRemoteAddr.isSet()) {
+    Serial.printf("[NET] Received first UDP connect from %s:%d\n", udp.remoteIP().toString().c_str(), udp.remotePort());
+    udpRemoteAddr = udp.remoteIP();
+    udpRemotePort = udp.remotePort();
+  }
+  else {
+    bool shouldUpdate = false;
+    if (udpRemoteAddr != udp.remoteIP()) {
+      shouldUpdate = true;
+    }
+    if (udpRemotePort != udp.remotePort()) {
+      shouldUpdate = true;
+    }
+
+    if (shouldUpdate) {
+      udpRemoteAddr = udp.remoteIP();
+      udpRemotePort = udp.remotePort();
+    }
+  }
+}
 
 // ==================================================
 // Web Server Management Functions
@@ -122,48 +150,11 @@ void setupWebServerRoutes() {
   });
 }
 
-void sendMessage(std::string msg) {
-  outboundMessages.push_back(msg);
-}
-
-void checkAndSendMessages() {
-  for (auto msg : outboundMessages) {
-    wsServer.broadcastTXT(msg.c_str());
-  }
-
-  outboundMessages.clear();
-}
-
-void handleWSEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
-  switch (type) {
-    case WStype_DISCONNECTED:
-      Serial.printf("[NET:WS] [%u] Disconnected\n", num);
-      break;
-    case WStype_CONNECTED: {
-        IPAddress ip = wsServer.remoteIP(num);
-        Serial.printf("[NET:WS] [%u] Connection from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
-      }
-      break;
-    case WStype_TEXT: {
-        StaticJsonDocument<512> jsonDoc;
-        DeserializationError error = deserializeJson(jsonDoc, payload);
-        if (error) {
-          Serial.println(error.f_str());
-          break;
-        }
-
-        _wsMessageCount++;
-        wpilibws::processWSMessage(jsonDoc);
-      }
-      break;
-  }
-}
-
 void checkPrintStatus() {
   if (millis() - _lastMessageStatusPrint > 5000) {
-    int numConnectedClients = wsServer.connectedClients();
+    
     int usedHeap = rp2040.getUsedHeap();
-    Serial.printf("t(ms):%u c:%d h:%d msg:%u lt(us):%u\n", millis(), numConnectedClients, usedHeap, _wsMessageCount, _avgLoopTimeUs);
+    Serial.printf("t(ms):%u h:%d msg:%u lt(us):%u\n", millis(), usedHeap, _wsMessageCount, _avgLoopTimeUs);
     _lastMessageStatusPrint = millis();
   }
 }
@@ -217,15 +208,6 @@ void setup() {
   netConfigResult = configureNetwork(config);
   Serial.printf("[NET] Actual WiFi Mode: %s\n", netConfigResult == NetworkMode::AP ? "AP" : "STA");
 
-  // bool result = WiFi.softAP(DEFAULT_SSID, "xrp-wpilib");
-  // if (result) {
-  //   Serial.println("[NET] WiFi AP Ready");
-  // }
-  // else {
-  //   Serial.println("[NET] AP Set up failed");
-  //   while (true);
-  // }
-
   // Set up HTTP server routes
   Serial.println("[NET] Setting up Config webserver");
   setupWebServerRoutes();
@@ -233,9 +215,9 @@ void setup() {
   webServer.begin();
   Serial.println("[NET] Config webserver listening on *:5000");
 
-  Serial.println("[NET] Setting up WS Server");
-  wsServer.onEvent(handleWSEvent);
-  wsServer.begin();
+  // Set up UDP
+  udp.begin(3540);
+  Serial.println("[NET] UDP socket listening on *:3540");
 
   Serial.println("[NET] Network Ready");
   Serial.printf("[NET] SSID: %s\n", WiFi.SSID().c_str());
@@ -256,47 +238,62 @@ void loop() {
   unsigned long loopStartTime = micros();
 
   webServer.handleClient();
-  wsServer.loop();
+
+  // TODO Check and handle UDP packet
+  int packetSize = udp.parsePacket();
+  if (packetSize) {
+    updateRemoteInfo();
+
+    // Read the packet
+    int n = udp.read(udpPacketBuf, UDP_TX_PACKET_MAX_SIZE);
+    wpilibudp::processPacket(udpPacketBuf, n);
+  }
 
   // TODO always run the IMU periodic routine
   xrp::imuPeriodic();
 
-  // Disable the robot when we no longer have a connection
-  int numConnectedClients = wsServer.connectedClients();
-  if (lastCheckedNumClients > 0 && numConnectedClients == 0) {
+  // TODO Disable the robot when the UDP watchdog timesout
+  if (!wpilibudp::dsWatchdogActive()) {
     xrp::robotSetEnabled(false);
     xrp::imuSetEnabled(false);
-    outboundMessages.clear();
   }
-  lastCheckedNumClients = numConnectedClients;
 
-  if (numConnectedClients > 0) {
-    // Send any messages we need to
-    checkAndSendMessages();
+  // Disable the robot when we no longer have a connection
+  // int numConnectedClients = wsServer.connectedClients();
+  // if (lastCheckedNumClients > 0 && numConnectedClients == 0) {
+  //   xrp::robotSetEnabled(false);
+  //   xrp::imuSetEnabled(false);
+  //   outboundMessages.clear();
+  // }
+  // lastCheckedNumClients = numConnectedClients;
 
-    // Read sensor data
-    auto updatedData = xrp::robotPeriodic();
-    if (updatedData & XRP_DATA_ENCODER) {
-      auto encValues = xrp::getActiveEncoderValues();
-      for (auto encData : encValues) {
-        sendMessage(wpilibws::makeEncoderMessage(encData.first, encData.second));
-      }
-    }
+  // if (numConnectedClients > 0) {
+  //   // Send any messages we need to
+  //   checkAndSendMessages();
 
-    if (updatedData & XRP_DATA_DIO) {
-      // User button is on DIO 0
-      sendMessage(wpilibws::makeDIOMessage(0, xrp::isUserButtonPressed()));
-    }
+  //   // Read sensor data
+  //   auto updatedData = xrp::robotPeriodic();
+  //   if (updatedData & XRP_DATA_ENCODER) {
+  //     auto encValues = xrp::getActiveEncoderValues();
+  //     for (auto encData : encValues) {
+  //       sendMessage(wpilibws::makeEncoderMessage(encData.first, encData.second));
+  //     }
+  //   }
 
-    // Read Gyro Data
-    if (xrp::imuDataReady()) {
-      float rateZ = xrp::imuGetGyroRateZ();
-      float yawAngle = xrp::imuGetYaw();
+  //   if (updatedData & XRP_DATA_DIO) {
+  //     // User button is on DIO 0
+  //     sendMessage(wpilibws::makeDIOMessage(0, xrp::isUserButtonPressed()));
+  //   }
+
+  //   // Read Gyro Data
+  //   if (xrp::imuDataReady()) {
+  //     float rateZ = xrp::imuGetGyroRateZ();
+  //     float yawAngle = xrp::imuGetYaw();
       
-      sendMessage(wpilibws::makeGyroSingleMessage(wpilibws::AXIS_Z, rateZ, yawAngle));
-    }
+  //     sendMessage(wpilibws::makeGyroSingleMessage(wpilibws::AXIS_Z, rateZ, yawAngle));
+  //   }
 
-  }
+  // }
 
   updateLoopTime(loopStartTime);
   checkPrintStatus();
