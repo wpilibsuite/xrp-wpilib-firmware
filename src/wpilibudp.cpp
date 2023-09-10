@@ -99,7 +99,8 @@ bool processPacket(char* buffer, int size) {
     }
   }
 
-  // TODO handle the enabled/disabled state
+  // Control byte essentially encodes the enabled/disabled state
+  xrp::robotSetEnabled(ctrl == 1);
 
   // Feed the watchdog
   _dsWatchdog.feed();
@@ -124,6 +125,62 @@ bool processPacket(char* buffer, int size) {
   }
 
   return true;
+}
+
+// ===================
+// Message Encoders
+// ===================
+
+int writeEncoderData(int deviceId, int count, char* buffer, int offset) {
+  // Encoder message is 6 bytes
+  // tag(1) id(1) int(4)
+  buffer[offset] = 6;
+  buffer[offset+1] = XRP_TAG_ENCODER;
+  buffer[offset+2] = deviceId & 0xFF;
+  int32ToNetwork(count, buffer, offset+3);
+  return 7; // +1 for the size byte
+}
+
+int writeDIOData(int deviceId, bool value, char* buffer, int offset) {
+  // DIO Message is 3 bytes
+  // tag(1) id(1) value(1)
+  buffer[offset] = 3;
+  buffer[offset+1] = XRP_TAG_DIO;
+  buffer[offset+2] = deviceId & 0xFF;
+  buffer[offset+3] = value ? 1 : 0;
+  return 4; // +1 for the size byte
+}
+
+int writeGyroData(float rates[3], float angles[3], char* buffer, int offset) {
+  // Gyro message is 25 bytes
+  // tag(1) rateX(4) rateY(4) rateZ(4) angleX(4) angleY(4) angleZ(4)
+  buffer[offset] = 25;
+  buffer[offset+1] = XRP_TAG_GYRO;
+  int ratePtr = offset + 2;
+  int anglePtr = ratePtr + 12;
+  for (int i = 0; i < 3; i++) {
+    floatToNetwork(rates[i], buffer, ratePtr);
+    floatToNetwork(angles[i], buffer, anglePtr);
+
+    ratePtr += 4;
+    anglePtr += 4;
+  }
+  return 26; // +1 for the size byte
+}
+
+int writeAccelData(float accels[3], char* buffer, int offset) {
+  // Accel message is 13 bytes
+  // tag(1) accX(4) accY(4) accZ(4)
+  buffer[offset] = 13;
+  buffer[offset+1] = XRP_TAG_ACCEL;
+  int ptr = offset + 2;
+  
+  for (int i = 0; i < 3; i++) {
+    floatToNetwork(accels[i], buffer, ptr);
+    ptr += 4;
+  }
+
+  return 14; // +1 for the size byte
 }
 
 } // namespace wpilibudp

@@ -1,6 +1,6 @@
 #include "robot.h"
 #include "encoder.pio.h"
-#include "wpilibws.h"
+#include "wpilibudp.h"
 
 #include <map>
 #include <vector>
@@ -156,7 +156,7 @@ void _setServoPwmValueInternal(int servoIdx, double value) {
 void _setPwmValueInternal(int channel, double value, bool override) {
   if (!_robotEnabled && !override) return;
 
-  if (!wpilibws::dsWatchdogActive() && !override) {
+  if (!wpilibudp::dsWatchdogActive() && !override) {
     return;
   }
 
@@ -226,11 +226,14 @@ uint8_t robotPeriodic() {
 
   // Kill PWM if the watchdog is dead
   // We want this to run as quickly as possible
-  if (!wpilibws::dsWatchdogActive()) {
+  if (!wpilibudp::dsWatchdogActive()) {
     _pwmShutoff();
   }
 
   if (millis() - _lastRobotPeriodicCall < 50) return ret;
+
+  // Just set the flag if we made it past the time check
+  ret |= XRP_DATA_GENERAL;
 
   // Check for encoder updates
   bool hasEncUpdate = _readEncodersInternal();
@@ -290,11 +293,16 @@ void configureEncoder(int deviceId, int chA, int chB) {
   }
 }
 
+// TODO this can get removed at some point since we'll ALWAYS report all values
 int readEncoder(int deviceId) {
   if (_encoderWPILibChannelToNativeMap.count(deviceId) > 0) {
     return _encoderValues[_encoderWPILibChannelToNativeMap[deviceId]];
   }
   return 0;
+}
+
+int readEncoderRaw(int rawDeviceId) {
+  return _encoderValues[rawDeviceId];
 }
 
 void resetEncoder(int deviceId) {

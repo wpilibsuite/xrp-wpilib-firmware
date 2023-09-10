@@ -9,6 +9,7 @@
 
 #include <vector>
 
+#include "byteutils.h"
 #include "config.h"
 #include "imu.h"
 #include "robot.h"
@@ -46,6 +47,8 @@ int _baselineUsedHeap = 0;
 
 unsigned long _avgLoopTimeUs = 0;
 unsigned long _loopTimeMeasurementCount = 0;
+
+uint16_t seq = 0;
 
 // Generate the status text file
 void writeStatusToDisk() {
@@ -89,6 +92,61 @@ void updateRemoteInfo() {
       udpRemoteAddr = udp.remoteIP();
       udpRemotePort = udp.remotePort();
     }
+  }
+}
+
+void sendData() {
+  int size = 0;
+  char buffer[512];
+  int ptr = 0;
+
+  uint16ToNetwork(seq, buffer);
+  buffer[2] = 0; // Unset the control byte
+  ptr = 3;
+
+  // Encoders
+  for (int i = 0; i < 4; i++) {
+    ptr += wpilibudp::writeEncoderData(i, xrp::readEncoderRaw(i), buffer, ptr);
+  } // 4x 7 bytes
+
+  // DIO (currently just the button)
+  // TODO: Line sensors too if they are configured
+  ptr += wpilibudp::writeDIOData(0, xrp::isUserButtonPressed(), buffer, ptr);
+  // 1x 4 bytes
+
+  // Gyro and accel data
+  float gyroRates[3] = {
+    xrp::imuGetGyroRateX(),
+    xrp::imuGetGyroRateY(),
+    xrp::imuGetGyroRateZ()
+  };
+
+  float gyroAngles[3] = {
+    xrp::imuGetRoll(),
+    xrp::imuGetPitch(),
+    xrp::imuGetYaw()
+  };
+
+  float accels[3] = {
+    xrp::imuGetAccelX(),
+    xrp::imuGetAccelY(),
+    xrp::imuGetAccelZ()
+  };
+
+  ptr += wpilibudp::writeGyroData(gyroRates, gyroAngles, buffer, ptr);
+  // 1x 26 bytes
+  ptr += wpilibudp::writeAccelData(accels, buffer, ptr);
+  // 1x 14 bytes
+
+  // ptr should now point to 1 past the last byte
+  size = ptr;
+
+  // Send
+  if (udpRemoteAddr.isSet()) {
+    udp.beginPacket(udpRemoteAddr.toString().c_str(), udpRemotePort);
+    udp.write(buffer, size);
+    udp.endPacket();
+    seq++;
   }
 }
 
@@ -233,7 +291,6 @@ void setup() {
   singleFileDrive.begin("status.txt", "XRP-Status.txt");
 }
 
-int lastCheckedNumClients = 0;
 void loop() {
   unsigned long loopStartTime = micros();
 
@@ -249,13 +306,17 @@ void loop() {
     wpilibudp::processPacket(udpPacketBuf, n);
   }
 
-  // TODO always run the IMU periodic routine
   xrp::imuPeriodic();
 
-  // TODO Disable the robot when the UDP watchdog timesout
+  // Disable the robot when the UDP watchdog timesout
   if (!wpilibudp::dsWatchdogActive()) {
     xrp::robotSetEnabled(false);
     xrp::imuSetEnabled(false);
+  }
+
+  if (xrp::robotPeriodic()) {
+    // Package up and send all the data
+    sendData();
   }
 
   // Disable the robot when we no longer have a connection
