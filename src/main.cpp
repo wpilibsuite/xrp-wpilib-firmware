@@ -296,7 +296,6 @@ void loop() {
 
   webServer.handleClient();
 
-  // TODO Check and handle UDP packet
   int packetSize = udp.parsePacket();
   if (packetSize) {
     updateRemoteInfo();
@@ -318,43 +317,6 @@ void loop() {
     // Package up and send all the data
     sendData();
   }
-
-  // Disable the robot when we no longer have a connection
-  // int numConnectedClients = wsServer.connectedClients();
-  // if (lastCheckedNumClients > 0 && numConnectedClients == 0) {
-  //   xrp::robotSetEnabled(false);
-  //   xrp::imuSetEnabled(false);
-  //   outboundMessages.clear();
-  // }
-  // lastCheckedNumClients = numConnectedClients;
-
-  // if (numConnectedClients > 0) {
-  //   // Send any messages we need to
-  //   checkAndSendMessages();
-
-  //   // Read sensor data
-  //   auto updatedData = xrp::robotPeriodic();
-  //   if (updatedData & XRP_DATA_ENCODER) {
-  //     auto encValues = xrp::getActiveEncoderValues();
-  //     for (auto encData : encValues) {
-  //       sendMessage(wpilibws::makeEncoderMessage(encData.first, encData.second));
-  //     }
-  //   }
-
-  //   if (updatedData & XRP_DATA_DIO) {
-  //     // User button is on DIO 0
-  //     sendMessage(wpilibws::makeDIOMessage(0, xrp::isUserButtonPressed()));
-  //   }
-
-  //   // Read Gyro Data
-  //   if (xrp::imuDataReady()) {
-  //     float rateZ = xrp::imuGetGyroRateZ();
-  //     float yawAngle = xrp::imuGetYaw();
-      
-  //     sendMessage(wpilibws::makeGyroSingleMessage(wpilibws::AXIS_Z, rateZ, yawAngle));
-  //   }
-
-  // }
 
   updateLoopTime(loopStartTime);
   checkPrintStatus();
