@@ -1,8 +1,8 @@
 # WPILib HAL Simulation - XRP Edition
 ## Introduction
-This repository contains a reference implementation of a XRP robot that can be controlled via the WPILib HALSim WebSocket extension.
+This repository contains a reference implementation of a [XRP robot](https://www.sparkfun.com/products/22230) that can be controlled via the WPILib XRP extension.
 
-The firmware implements (a subset) of the [WPILib Robot Hardware Interface WebSockets API spec](https://github.com/wpilibsuite/allwpilib/blob/main/simulation/halsim_ws_core/doc/hardware_ws_api.md). It behaves similarly to the [WPILib Romi Project](https://github.com/wpilibsuite/wpilib-ws-robot-romi) (with some functionality removed due to being an embedded system vs a Linux machine).
+The firmware implements a [custom binary protocol](https://github.com/wpilibsuite/allwpilib/tree/main/simulation/halsim_xrp) over UDP to account for the less performant hardware on the XRP.
 
 ## Installation and Usage
 
@@ -18,7 +18,7 @@ To install the latest firmware on your XRP, do the following:
 * At this point, you can disconnect the XRP board from your computer and run it off battery power
 
 ### Basic usage
-The firmware provides an endpoint for the WPILib Simulation layer that allows WPILib robot programs to interact with real hardware on the XRP over WebSockets. 
+The firmware provides an endpoint for the WPILib Simulation layer that allows WPILib robot programs to interact with real hardware on the XRP over UDP. 
 
 Upon boot up, the following will happen:
 * The IMU will calibrate itself. This lasts approximately 3-5 seconds, and will be indicated by the green LED rapidly blinking.
