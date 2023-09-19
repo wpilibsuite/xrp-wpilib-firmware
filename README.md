@@ -1,8 +1,8 @@
 # WPILib HAL Simulation - XRP Edition
 ## Introduction
-This repository contains a reference implementation of a XRP robot that can be controlled via the WPILib HALSim WebSocket extension.
+This repository contains a reference implementation of a [XRP robot](https://www.sparkfun.com/products/22230) that can be controlled via the WPILib XRP extension.
 
-The firmware implements (a subset) of the [WPILib Robot Hardware Interface WebSockets API spec](https://github.com/wpilibsuite/allwpilib/blob/main/simulation/halsim_ws_core/doc/hardware_ws_api.md). It behaves similarly to the [WPILib Romi Project](https://github.com/wpilibsuite/wpilib-ws-robot-romi) (with some functionality removed due to being an embedded system vs a Linux machine).
+The firmware implements a [custom binary protocol](https://github.com/wpilibsuite/allwpilib/tree/main/simulation/halsim_xrp) over UDP to account for the less performant hardware on the XRP.
 
 ## Installation and Usage
 
@@ -18,7 +18,7 @@ To install the latest firmware on your XRP, do the following:
 * At this point, you can disconnect the XRP board from your computer and run it off battery power
 
 ### Basic usage
-The firmware provides an endpoint for the WPILib Simulation layer that allows WPILib robot programs to interact with real hardware on the XRP over WebSockets. 
+The firmware provides an endpoint for the WPILib Simulation layer that allows WPILib robot programs to interact with real hardware on the XRP over UDP. 
 
 Upon boot up, the following will happen:
 * The IMU will calibrate itself. This lasts approximately 3-5 seconds, and will be indicated by the green LED rapidly blinking.
@@ -42,7 +42,34 @@ Users can manually edit the JSON configuration to change the AP name/password, o
 After saving changes, make sure the restart the XRP.
 
 #### Note
-As of 9/6/2023, you can use the [2024 Alpha 1 version](https://github.com/wpilibsuite/allwpilib/releases/tag/v2024.0.0-alpha-1) (or later) of WPILib to write XRP programs. There are also examples and templates (currently Java only) available (look for "XRP" in the examples/templates dropdown when creating a new project).
+As of 9/19/2023, you MUST use the [2024 Alpha 1 version](https://github.com/wpilibsuite/allwpilib/releases/tag/v2024.0.0-alpha-1) (or later) of WPILib to write XRP programs. There are also examples and templates (currently Java only) available (look for "XRP" in the examples/templates dropdown when creating a new project).
+
+Additionally, while waiting for a new alpha/beta version of WPILib to be published, the following changes need to be made to your robot project `build.gradle` file.
+
+At the top of the file, right under the `plugins` block, add the following lines (this forces the use of development WPILib versions):
+
+```groovy
+wpi.maven.useLocal = false
+wpi.maven.useFrcMavenLocalDevelopment = true
+wpi.versions.wpilibVersion = '2024.424242.+'
+wpi.versions.wpimathVersion = '2024.424242.+'
+```
+
+At the bottom of the file, add the following lines after `wpi.sim.addDriverstation()` (this enables the XRP plugin):
+
+```groovy
+wpi.sim.envVar("HALSIMXRP_HOST", "192.168.42.1");
+wpi.sim.addDep("Sim XRP Client", "edu.wpi.first.halsim", "halsim_xrp").defaultEnabled = true;
+```
+
+Also comment out the following lines (this disables the WebSocket plugins which aren't needed for the XRP):
+
+```groovy
+// wpi.sim.envVar("HALSIMWS_HOST", "192.168.42.1")
+// wpi.sim.envVar("HALSIMWS_FILTERS", "AIO,DIO,DriverStation,Encoder,Gyro,XRPMotor,XRPServo,HAL")
+// wpi.sim.addWebsocketsServer().defaultEnabled = true
+// wpi.sim.addWebsocketsClient().defaultEnabled = true
+```
 
 ## Built-in IO Mapping
 

@@ -47,8 +47,15 @@ void imuSetEnabled(bool enabled) {
     gyroReset();
   }
 
+  bool prevEnabledValue = _imuEnabled;
   _imuEnabled = enabled;
-  Serial.printf("[IMU] %s\n", enabled ? "Enabling" : "Disabling");
+
+  if (prevEnabledValue && !enabled) {
+    Serial.println("[IMU] Disabled");
+  }
+  else if (!prevEnabledValue && enabled) {
+    Serial.println("[IMU] Enabled");
+  }
 }
 
 bool imuIsEnabled() {

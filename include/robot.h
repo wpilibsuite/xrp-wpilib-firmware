@@ -48,6 +48,7 @@
 
 #define XRP_DATA_ENCODER 0x01
 #define XRP_DATA_DIO 0x02
+#define XRP_DATA_GENERAL 0x04
 
 namespace xrp {
 
@@ -61,6 +62,7 @@ void robotSetEnabled(bool enabled);
 // Encoder Related
 void configureEncoder(int deviceId, int chA, int chB);
 int readEncoder(int deviceId);
+int readEncoderRaw(int rawDeviceId);
 void resetEncoder(int deviceId);
 std::vector<std::pair<int,int> > getActiveEncoderValues();
 
