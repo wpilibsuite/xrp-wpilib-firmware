@@ -183,4 +183,15 @@ int writeAccelData(float accels[3], char* buffer, int offset) {
   return 14; // +1 for the size byte
 }
 
+int writeAnalogData(int deviceId, float voltage, char* buffer, int offset) {
+  // Analog message is 6 bytes
+  // tag(1) id(1) value(4)
+  buffer[offset] = 6;
+  buffer[offset+1] = XRP_TAG_ANALOG;
+  buffer[offset+2] = deviceId;
+  floatToNetwork(voltage, buffer, offset+3);
+
+  return 7; // +1 for size byte
+}
+
 } // namespace wpilibudp

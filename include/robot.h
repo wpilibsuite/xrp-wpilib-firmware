@@ -48,7 +48,8 @@
 
 #define XRP_DATA_ENCODER 0x01
 #define XRP_DATA_DIO 0x02
-#define XRP_DATA_GENERAL 0x04
+#define XRP_DATA_AIO 0x04
+#define XRP_DATA_GENERAL 0x08
 
 namespace xrp {
 
@@ -72,5 +73,17 @@ void setPwmValue(int wpilibChannel, double value);
 // DIO Related
 bool isUserButtonPressed();
 void setDigitalOutput(int channel, bool value);
+
+// Line/Reflectance Sensing Related
+void reflectanceInit();
+bool reflectanceInitialized();
+float getReflectanceLeft5V();
+float getReflectanceRight5V();
+
+// Rangefinder
+void rangefinderInit();
+bool rangefinderInitialized();
+float getRangefinderDistance5V();
+void rangefinderPeriodic();
 
 } // namespace xrp

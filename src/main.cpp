@@ -138,6 +138,15 @@ void sendData() {
   ptr += wpilibudp::writeAccelData(accels, buffer, ptr);
   // 1x 14 bytes
 
+  if (xrp::reflectanceInitialized()) {
+    ptr += wpilibudp::writeAnalogData(0, xrp::getReflectanceLeft5V(), buffer, ptr);
+    ptr += wpilibudp::writeAnalogData(1, xrp::getReflectanceRight5V(), buffer, ptr);
+  }
+
+  if (xrp::rangefinderInitialized()) {
+    ptr += wpilibudp::writeAnalogData(2, xrp::getRangefinderDistance5V(), buffer, ptr);
+  }
+
   // ptr should now point to 1 past the last byte
   size = ptr;
 
@@ -283,6 +292,14 @@ void setup() {
 
   xrp::robotInit();
 
+  // NOTE: For now, we'll force init the reflectance sensor
+  // TODO Enable this via configuration
+  xrp::reflectanceInit();
+
+  // NOTE: For now we'll force init the rangefinder
+  // TODO enable this via configuration
+  xrp::rangefinderInit();
+
   _lastMessageStatusPrint = millis();
   _baselineUsedHeap = rp2040.getUsedHeap();
 
@@ -320,4 +337,12 @@ void loop() {
 
   updateLoopTime(loopStartTime);
   checkPrintStatus();
+}
+
+void loop1() {
+  if (xrp::rangefinderInitialized()) {
+    xrp::rangefinderPeriodic();
+  }
+
+  delay(20);
 }
