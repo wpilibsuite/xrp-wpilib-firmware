@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <Servo.h>
+#include <HCSR04.h>
 
 #define REFLECT_LEFT_PIN 26
 #define REFLECT_RIGHT_PIN 27
@@ -44,6 +45,12 @@ std::map<int, int> _encoderWPILibChannelToNativeMap;
 
 // Reflectance
 bool _reflectanceInitialized = false;
+
+// Rangefinder
+bool _rangefinderInitialized = false;
+float _rangefinderDistMetres = 0.0f;
+const float RANGEFINDER_MAX_DIST_M = 4.0f;
+UltraSonicDistanceSensor* _rangefinder = nullptr;
 
 // Internal helper functions
 bool _initEncoders() {
@@ -375,5 +382,31 @@ float getReflectanceRight5V() {
   return _readAnalogPinScaled(REFLECT_RIGHT_PIN) * 5.0f;
 }
 
+void rangefinderInit() {
+  _rangefinder = new UltraSonicDistanceSensor(20, 21);
+  _rangefinderInitialized = true;
+}
+
+bool rangefinderInitialized() {
+  return _rangefinderInitialized;
+}
+
+float getRangefinderDistance5V() {
+  return (_rangefinderDistMetres / RANGEFINDER_MAX_DIST_M) * 5.0f;
+}
+
+void rangefinderPeriodic() {
+  if (_rangefinder == nullptr) {
+    return;
+  }
+
+  float distCM = _rangefinder->measureDistanceCm();
+  if (distCM < 0) {
+    _rangefinderDistMetres = RANGEFINDER_MAX_DIST_M;
+  }
+  else {
+    _rangefinderDistMetres = distCM / 100.0f;
+  }
+}
 
 } // namespace xrp

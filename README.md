@@ -89,6 +89,23 @@ Also comment out the following lines (this disables the WebSocket plugins which 
 | 10         | Motor 4 Encoder A |
 | 11         | Motor 4 Encoder B |
 
+### Analog I/O Map
+| Analog Port # | Function          |
+|---------------|-------------------|
+| 0             | Left Reflectance  |
+| 1             | Right Reflectance |
+| 2             | Rangefinder       |
+
+NOTE: The analog I/O mapping assumes that the reflectance sensor and rangefinder are plugged into the XRP as directed in the setup instructions. All analog I/O channels return values in the range 0-5V.
+
+#### Reflectance Sensors
+The reflectance sensors return a value from 0.0V (white) to 5.0V (black).
+
+#### Rangefinder
+The maximum range of the rangefinder is 4m, and the minimum detectable range is 2cm. Any values outside of this range will cause the rangefinder to saturate and return the maximum value.
+
+The rangefinder will return a value between 0.0V (min distance) to 5.0V (4m).
+
 ### Motor and Servo Map
 
 Instead of pure PWM channels, the XRP uses SimDevices, specifically the `XRPMotor` and `XRPServo` devices. 

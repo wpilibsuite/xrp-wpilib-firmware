@@ -80,4 +80,10 @@ bool reflectanceInitialized();
 float getReflectanceLeft5V();
 float getReflectanceRight5V();
 
+// Rangefinder
+void rangefinderInit();
+bool rangefinderInitialized();
+float getRangefinderDistance5V();
+void rangefinderPeriodic();
+
 } // namespace xrp
