@@ -18,4 +18,5 @@ int writeEncoderData(int deviceId, int count, char* buffer, int offset = 0);
 int writeDIOData(int deviceId, bool value, char* buffer, int offset = 0);
 int writeGyroData(float rates[3], float angles[3], char* buffer, int offset = 0);
 int writeAccelData(float accels[3], char* buffer, int offset = 0);
+int writeAnalogData(int deviceId, float voltage, char* buffer, int offset = 0);
 } // namespace wpilibudp

@@ -7,6 +7,9 @@
 
 #include <Servo.h>
 
+#define REFLECT_LEFT_PIN 26
+#define REFLECT_RIGHT_PIN 27
+
 namespace xrp {
 
 bool _robotInitialized = false;
@@ -38,6 +41,9 @@ int _encoderValues[4] = {0, 0, 0, 0};
 int _encoderStateMachineIdx[4] = {-1, -1, -1, -1};
 PIO _encoderPioInstance[4] = {nullptr, nullptr, nullptr, nullptr};
 std::map<int, int> _encoderWPILibChannelToNativeMap;
+
+// Reflectance
+bool _reflectanceInitialized = false;
 
 // Internal helper functions
 bool _initEncoders() {
@@ -333,6 +339,40 @@ void setDigitalOutput(int channel, bool value) {
     // LED
     digitalWrite(XRP_BUILTIN_LED, value ? HIGH : LOW);
   }
+}
+
+void reflectanceInit() {
+  analogReadResolution(12);
+  
+  _reflectanceInitialized = true;
+}
+
+bool reflectanceInitialized() {
+  return _reflectanceInitialized;
+}
+
+/**
+ * Return a scaled voltage (0 to 1) based off analog pin reading
+ */
+float _readAnalogPinScaled(uint8_t pin) {
+  float scaled = (float)analogRead(pin) / 4095.0f;
+  return scaled;
+}
+
+float getReflectanceLeft5V() {
+  if (!_reflectanceInitialized) {
+    return -1.0f;
+  }
+  
+  return _readAnalogPinScaled(REFLECT_LEFT_PIN) * 5.0f;
+}
+
+float getReflectanceRight5V() {
+  if (!_reflectanceInitialized) {
+    return -1.0f;
+  }
+
+  return _readAnalogPinScaled(REFLECT_RIGHT_PIN) * 5.0f;
 }
 
 

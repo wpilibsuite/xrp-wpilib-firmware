@@ -138,6 +138,11 @@ void sendData() {
   ptr += wpilibudp::writeAccelData(accels, buffer, ptr);
   // 1x 14 bytes
 
+  if (xrp::reflectanceInitialized()) {
+    ptr += wpilibudp::writeAnalogData(0, xrp::getReflectanceLeft5V(), buffer, ptr);
+    ptr += wpilibudp::writeAnalogData(1, xrp::getReflectanceRight5V(), buffer, ptr);
+  }
+
   // ptr should now point to 1 past the last byte
   size = ptr;
 
@@ -282,6 +287,10 @@ void setup() {
   Serial.printf("[NET] IP: %s\n", WiFi.localIP().toString().c_str());
 
   xrp::robotInit();
+
+  // NOTE: For now, we'll for init the reflectance sensor
+  // TODO Enable this via configuration
+  xrp::reflectanceInit();
 
   _lastMessageStatusPrint = millis();
   _baselineUsedHeap = rp2040.getUsedHeap();
