@@ -340,9 +340,9 @@ void loop() {
 }
 
 void loop1() {
-  if (xrp::rangefinderInitialized()) {
-    xrp::rangefinderPeriodic();
-  }
+  // if (xrp::rangefinderInitialized()) {
+  //   xrp::rangefinderPeriodic();
+  // }
 
-  delay(20);
+  // delay(20);
 }
