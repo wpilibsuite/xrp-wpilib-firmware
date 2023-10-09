@@ -13,6 +13,7 @@ namespace wpilibudp {
 bool dsWatchdogActive();
 
 bool processPacket(char* buffer, int size);
+void resetState();
 
 int writeEncoderData(int deviceId, int count, char* buffer, int offset = 0);
 int writeDIOData(int deviceId, bool value, char* buffer, int offset = 0);
