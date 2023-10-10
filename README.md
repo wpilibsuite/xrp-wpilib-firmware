@@ -50,9 +50,9 @@ At the top of the file, right under the `plugins` block, add the following lines
 
 ```groovy
 wpi.maven.useLocal = false
-wpi.maven.useFrcMavenLocalDevelopment = true
-wpi.versions.wpilibVersion = '2024.424242.+'
-wpi.versions.wpimathVersion = '2024.424242.+'
+wpi.maven.useDevelopment = true
+wpi.versions.wpilibVersion = '2024.+'
+wpi.versions.wpimathVersion = '2024.+'
 ```
 
 At the bottom of the file, add the following lines after `wpi.sim.addDriverstation()` (this enables the XRP plugin):
