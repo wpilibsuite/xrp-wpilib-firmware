@@ -62,7 +62,7 @@ void writeStatusToDisk() {
   else {
     f.printf("Connected to %s\n", WiFi.SSID().c_str());
   }
- 
+
   f.printf("IP Address: %s\n", WiFi.localIP().toString().c_str());
   f.close();
 }
@@ -219,7 +219,7 @@ void setupWebServerRoutes() {
 
 void checkPrintStatus() {
   if (millis() - _lastMessageStatusPrint > 5000) {
-    
+
     int usedHeap = rp2040.getUsedHeap();
     Serial.printf("t(ms):%u h:%d msg:%u lt(us):%u\n", millis(), usedHeap, _wsMessageCount, _avgLoopTimeUs);
     _lastMessageStatusPrint = millis();
@@ -323,6 +323,7 @@ void loop() {
   }
 
   xrp::imuPeriodic();
+  xrp::rangefinderPollForData();
 
   // Disable the robot when the UDP watchdog timesout
   // Also reset the max sequence number so we can handle reconnects
@@ -342,9 +343,9 @@ void loop() {
 }
 
 void loop1() {
-  // if (xrp::rangefinderInitialized()) {
-  //   xrp::rangefinderPeriodic();
-  // }
+  if (xrp::rangefinderInitialized()) {
+    xrp::rangefinderPeriodic();
+  }
 
-  // delay(20);
+  delay(50);
 }
