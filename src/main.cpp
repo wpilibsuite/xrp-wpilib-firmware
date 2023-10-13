@@ -269,7 +269,7 @@ void setup() {
   }
 
   // Set up WiFi AP
-  WiFi.setHostname("XRP");
+  WiFi.setHostname(DEFAULT_SSID);
 
   // Use configuration information
   netConfigResult = configureNetwork(config);
