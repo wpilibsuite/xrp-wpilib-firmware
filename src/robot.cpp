@@ -6,10 +6,13 @@
 #include <vector>
 
 #include <Servo.h>
-#include <HCSR04.h>
 
 #define REFLECT_LEFT_PIN 26
 #define REFLECT_RIGHT_PIN 27
+
+#define ULTRASONIC_TRIG_PIN 20
+#define ULTRASONIC_ECHO_PIN 21
+#define ULTRASONIC_MAX_PULSE_WIDTH 23200
 
 namespace xrp {
 
@@ -50,7 +53,6 @@ bool _reflectanceInitialized = false;
 bool _rangefinderInitialized = false;
 float _rangefinderDistMetres = 0.0f;
 const float RANGEFINDER_MAX_DIST_M = 4.0f;
-UltraSonicDistanceSensor* _rangefinder = nullptr;
 
 // Internal helper functions
 bool _initEncoders() {
@@ -98,7 +100,7 @@ bool _readEncodersInternal() {
 
     if (_pio != nullptr) {
       _encoderValues[i] = _readEncoderInternal(_pio, _smIdx);
-      
+
       if (_encoderValues[i] != _encoderValuesLast[i]) {
         hasChange = true;
       }
@@ -157,7 +159,7 @@ void _setMotorPwmValueInternal(int en, int ph, double value) {
 
 void _setServoPwmValueInternal(int servoIdx, double value) {
   int val = ((value + 1.0) / 2.0) * 180;
-  
+
   if (servoIdx == 0 && servo1.attached()) {
     servo1.write(val);
   }
@@ -350,7 +352,7 @@ void setDigitalOutput(int channel, bool value) {
 
 void reflectanceInit() {
   analogReadResolution(12);
-  
+
   _reflectanceInitialized = true;
 }
 
@@ -370,7 +372,7 @@ float getReflectanceLeft5V() {
   if (!_reflectanceInitialized) {
     return -1.0f;
   }
-  
+
   return _readAnalogPinScaled(REFLECT_LEFT_PIN) * 5.0f;
 }
 
@@ -383,7 +385,10 @@ float getReflectanceRight5V() {
 }
 
 void rangefinderInit() {
-  _rangefinder = new UltraSonicDistanceSensor(20, 21);
+  pinMode(ULTRASONIC_TRIG_PIN, OUTPUT); // Trigger Pin
+  digitalWrite(ULTRASONIC_TRIG_PIN, LOW);
+
+  pinMode(ULTRASONIC_ECHO_PIN, INPUT); // Echo pin
   _rangefinderInitialized = true;
 }
 
@@ -395,18 +400,54 @@ float getRangefinderDistance5V() {
   return (_rangefinderDistMetres / RANGEFINDER_MAX_DIST_M) * 5.0f;
 }
 
-void rangefinderPeriodic() {
-  if (_rangefinder == nullptr) {
-    return;
+void rangefinderPollForData() {
+  uint32_t bits = 0;
+  if (rp2040.fifo.pop_nb(&bits)) {
+    memcpy(&_rangefinderDistMetres, &bits, sizeof(_rangefinderDistMetres));
   }
+}
 
-  float distCM = _rangefinder->measureDistanceCm();
-  if (distCM < 0) {
-    _rangefinderDistMetres = RANGEFINDER_MAX_DIST_M;
+void rangefinderPeriodic() {
+  unsigned long t1;
+  unsigned long t2;
+  unsigned long pulseWidth;
+  float distCM;
+  float distMetres = RANGEFINDER_MAX_DIST_M;
+
+  // Stabilize the sensor
+  digitalWrite(ULTRASONIC_TRIG_PIN, LOW);
+  delayMicroseconds(5);
+  digitalWrite(ULTRASONIC_TRIG_PIN, HIGH);
+
+  // Send a 10us pulse
+  delayMicroseconds(10);
+  digitalWrite(ULTRASONIC_TRIG_PIN, LOW);
+
+  // wait for pulse on the echo pin
+  while (digitalRead(ULTRASONIC_ECHO_PIN) == 0);
+
+  t1 = micros();
+  while (digitalRead(ULTRASONIC_ECHO_PIN) == 1) {
+    if (micros() - t1 > ULTRASONIC_MAX_PULSE_WIDTH) {
+      break;
+    }
+  }
+  t2 = micros();
+  pulseWidth = t2 - t1;
+
+  distCM = pulseWidth / 58.0;
+
+  if (pulseWidth > ULTRASONIC_MAX_PULSE_WIDTH) {
+    distMetres = RANGEFINDER_MAX_DIST_M;
   }
   else {
-    _rangefinderDistMetres = distCM / 100.0f;
+    distMetres = distCM / 100.0f;
   }
+
+  // convert to a uint32_t so that we can push it onto the FIFO
+  uint32_t bits = 0;
+  memcpy(&bits, &distMetres, sizeof(bits));
+  bool result = rp2040.fifo.push_nb(bits);
 }
 
 } // namespace xrp

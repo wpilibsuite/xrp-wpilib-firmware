@@ -84,6 +84,7 @@ float getReflectanceRight5V();
 void rangefinderInit();
 bool rangefinderInitialized();
 float getRangefinderDistance5V();
+void rangefinderPollForData();
 void rangefinderPeriodic();
 
 } // namespace xrp
