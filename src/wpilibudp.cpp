@@ -69,6 +69,10 @@ bool dsWatchdogActive() {
   return _dsWatchdog.satisfied();
 }
 
+void resetState() {
+  currMaxSeq = 0;
+}
+
 bool processPacket(char* buffer, int size) {
   if (size < 3) {
     return false;

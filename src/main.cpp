@@ -325,7 +325,9 @@ void loop() {
   xrp::imuPeriodic();
 
   // Disable the robot when the UDP watchdog timesout
+  // Also reset the max sequence number so we can handle reconnects
   if (!wpilibudp::dsWatchdogActive()) {
+    wpilibudp::resetState();
     xrp::robotSetEnabled(false);
     xrp::imuSetEnabled(false);
   }
