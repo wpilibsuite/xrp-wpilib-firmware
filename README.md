@@ -4,6 +4,9 @@ This repository contains a reference implementation of a [XRP robot](https://www
 
 The firmware implements a [custom binary protocol](https://github.com/wpilibsuite/allwpilib/tree/main/simulation/halsim_xrp) over UDP to account for the less performant hardware on the XRP.
 
+## Documentation
+Official documentation for the XRP and how to use it with WPILib can be found on the [WPILib Docs site](https://docs.wpilib.org/en/latest/docs/xrp-robot/index.html). The documentation below is also reflected in the official WPILib documentation.
+
 ## Installation and Usage
 
 ### Firmware installation and upgrades
@@ -42,34 +45,7 @@ Users can manually edit the JSON configuration to change the AP name/password, o
 After saving changes, make sure the restart the XRP.
 
 #### Note
-As of 9/19/2023, you MUST use the [2024 Alpha 1 version](https://github.com/wpilibsuite/allwpilib/releases/tag/v2024.0.0-alpha-1) (or later) of WPILib to write XRP programs. There are also examples and templates (currently Java only) available (look for "XRP" in the examples/templates dropdown when creating a new project).
-
-Additionally, while waiting for a new alpha/beta version of WPILib to be published, the following changes need to be made to your robot project `build.gradle` file.
-
-At the top of the file, right under the `plugins` block, add the following lines (this forces the use of development WPILib versions):
-
-```groovy
-wpi.maven.useLocal = false
-wpi.maven.useDevelopment = true
-wpi.versions.wpilibVersion = '2024.+'
-wpi.versions.wpimathVersion = '2024.+'
-```
-
-At the bottom of the file, add the following lines after `wpi.sim.addDriverstation()` (this enables the XRP plugin):
-
-```groovy
-wpi.sim.envVar("HALSIMXRP_HOST", "192.168.42.1");
-wpi.sim.addDep("Sim XRP Client", "edu.wpi.first.halsim", "halsim_xrp").defaultEnabled = true;
-```
-
-Also comment out the following lines (this disables the WebSocket plugins which aren't needed for the XRP):
-
-```groovy
-// wpi.sim.envVar("HALSIMWS_HOST", "192.168.42.1")
-// wpi.sim.envVar("HALSIMWS_FILTERS", "AIO,DIO,DriverStation,Encoder,Gyro,XRPMotor,XRPServo,HAL")
-// wpi.sim.addWebsocketsServer().defaultEnabled = true
-// wpi.sim.addWebsocketsClient().defaultEnabled = true
-```
+As of 10/13/2023, you MUST use the [2024 Beta 1 version](https://github.com/wpilibsuite/allwpilib/releases/tag/v2024.1.1-beta-1) (or later) of WPILib to write XRP programs. There are also examples and templates available (look for "XRP" in the examples/templates dropdown when creating a new project).
 
 ## Built-in IO Mapping
 
