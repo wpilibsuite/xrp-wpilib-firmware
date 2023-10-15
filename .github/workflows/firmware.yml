@@ -11,6 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Set FIRMWARE_VERSION variable
+      run: |
+        FIRMWARE_VER=$(cat VERSION)
+        echo "FIRMWARE_VERSION=$FIRMWARE_VER" >> $GITHUB_ENV
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
@@ -21,7 +25,9 @@ jobs:
         pip install platformio
     - name: Build
       run: pio run
+    - name: Rename firmware
+      run: mv .pio/build/rpipicow/firmware.uf2 .pio/build/rpipicow/xrp-wpilib-firmware-${{ env.FIRMWARE_VERSION }}.uf2
     - uses: actions/upload-artifact@v2
       with:
-        name: xrp-wpilib-firmware.uf2
-        path: .pio/build/rpipicow/firmware.uf2
+        name: xrp-wpilib-firmware-${{ env.FIRMWARE_VERSION }}
+        path: .pio/build/rpipicow/xrp-wpilib-firmware-*.uf2
