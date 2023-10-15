@@ -10,7 +10,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Set FIRMWARE_VERSION variable
       run: |
         FIRMWARE_VER=$(cat VERSION)
@@ -18,7 +18,7 @@ jobs:
     - name: Set FIRMWARE_COMMIT_HASH variable
       run: echo "FIRMWARE_COMMIT_SHA=$(git rev-parse --short "$GITHUB_SHA")" >> "$GITHUB_ENV"
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v3
       with:
         python-version: 3.8
     - name: Install dependencies
@@ -29,7 +29,7 @@ jobs:
       run: pio run
     - name: Rename firmware
       run: mv .pio/build/rpipicow/firmware.uf2 .pio/build/rpipicow/xrp-wpilib-firmware-${{ env.FIRMWARE_VERSION }}-${{ env.FIRMWARE_COMMIT_SHA }}.uf2
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         name: xrp-wpilib-firmware-${{ env.FIRMWARE_VERSION }}-${{ env.FIRMWARE_COMMIT_SHA }}
         path: .pio/build/rpipicow/xrp-wpilib-firmware-*.uf2
