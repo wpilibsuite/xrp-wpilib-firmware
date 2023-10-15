@@ -9,6 +9,14 @@ resSrcDir = os.path.join(env.subst("$BUILD_DIR"), "resources", "src")
 resBuildDir = os.path.join(env.subst("$BUILD_DIR"), "resources", "build")
 resDir = os.path.join(env.subst("$PROJECT_DIR"), "resources")
 minifiedJsDir = os.path.join(env.subst("$BUILD_DIR"), "resources", "minifiedjs")
+versionReplaceDir = os.path.join(env.subst("$BUILD_DIR"), "resources", "versionReplace")
+
+# open the VERSION file
+versionFile = os.path.join(env.subst("$PROJECT_DIR"), "VERSION")
+version = "UNK"
+with open(versionFile, "r") as f:
+    version = f.read().strip()
+print("Version Info: ", version)
 
 print("Resource Dir: ", resDir)
 
@@ -23,6 +31,10 @@ os.makedirs(resSrcDir)
 if os.path.exists(minifiedJsDir):
     shutil.rmtree(minifiedJsDir)
 os.makedirs(minifiedJsDir)
+
+if os.path.exists(versionReplaceDir):
+    shutil.rmtree(versionReplaceDir)
+os.makedirs(versionReplaceDir)
 
 def genResource(inputFile):
     with open(inputFile, "rb") as f:
@@ -54,6 +66,21 @@ def minifyJs(inputFile):
 
     return outputFile
 
+def versionReplace(inputFile):
+    with open(inputFile, "r") as f:
+        data = f.read()
+
+    inputBase = os.path.basename(inputFile)
+    outputFile = os.path.join(versionReplaceDir, inputBase)
+
+    # find replacement
+    data = data.replace("%%%VERSION_REPLACE%%%", version)
+
+    with open(outputFile, "w") as f:
+        print(data, file=f)
+
+    return outputFile
+
 
 # Loop through everything in the resources folder
 # For each item, generate the resource cpp file
@@ -65,6 +92,8 @@ if os.path.exists(resDir):
             # minify JS files
             if len(fileExt) > 1 and (fileExt[-1]).lower() == ".js":
                 genResource(minifyJs(f))
+            elif filename == "index.html":
+                genResource(versionReplace(f))
             else:
                 genResource(f)
 
