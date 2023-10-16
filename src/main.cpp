@@ -106,11 +106,18 @@ void sendData() {
 
   // Encoders
   for (int i = 0; i < 4; i++) {
-    ptr += wpilibudp::writeEncoderData(i, xrp::readEncoderRaw(i), buffer, ptr);
+    int encoderValue = xrp::readEncoderRaw(i);
+
+    // We want to flip the encoder 0 value (left motor encoder) so that this returns
+    // positive values when moving forward.
+    if (i == 0) {
+      encoderValue = -encoderValue;
+    }
+
+    ptr += wpilibudp::writeEncoderData(i, encoderValue, buffer, ptr);
   } // 4x 7 bytes
 
   // DIO (currently just the button)
-  // TODO: Line sensors too if they are configured
   ptr += wpilibudp::writeDIOData(0, xrp::isUserButtonPressed(), buffer, ptr);
   // 1x 4 bytes
 
