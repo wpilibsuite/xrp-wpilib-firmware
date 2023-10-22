@@ -21,6 +21,7 @@ const unsigned char* GetResource_index_html(size_t* len);
 const unsigned char* GetResource_normalize_css(size_t* len);
 const unsigned char* GetResource_skeleton_css(size_t* len);
 const unsigned char* GetResource_xrp_js(size_t* len);
+const unsigned char* GetResource_VERSION(size_t* len);
 }
 
 char chipID[20];
@@ -53,6 +54,9 @@ uint16_t seq = 0;
 // Generate the status text file
 void writeStatusToDisk() {
   File f = LittleFS.open("/status.txt", "w");
+  size_t len;
+  std::string versionString{reinterpret_cast<const char*>(GetResource_VERSION(&len)), len};
+  f.printf("Version: %s\n", versionString.c_str());
   f.printf("Chip ID: %s\n", chipID);
   f.printf("WiFi Mode: %s\n", netConfigResult == NetworkMode::AP ? "AP" : "STA");
   if (netConfigResult == NetworkMode::AP) {
