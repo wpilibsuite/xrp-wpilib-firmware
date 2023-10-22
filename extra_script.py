@@ -82,6 +82,10 @@ def versionReplace(inputFile):
     return outputFile
 
 
+# generate the version resource string
+versionFile = os.path.join(env.subst("$PROJECT_DIR"), "VERSION")
+genResource(versionFile)
+
 # Loop through everything in the resources folder
 # For each item, generate the resource cpp file
 if os.path.exists(resDir):
