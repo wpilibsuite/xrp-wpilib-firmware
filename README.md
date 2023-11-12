@@ -16,6 +16,7 @@ To install the latest firmware on your XRP, do the following:
 * Plug the XRP into your computer with a USB cable. You should see a red power LED that lights up.
 * While holding the BOOTSEL button (the white button on the green Pico W, near the USB connector), quickly press the reset button (middle left side of the XRP board), and then release the BOOTSEL button
 * The board will temporariloy disconnect from your computer, and then reconnect as a USB storage device named "RPI-RP2"
+  * If this drive does not appear, you can also try unplugging the XRP from your computer, holding the BOOTSEL button down, reconnecting the XRP to your computer and then releasing the BOOTSEL button.
 * Drag the UF2 firmware file into the "RPI-RP2" drive, and it will automatically update the firmware
 * Once complete, the "RPI-RP2" device will disconnect, and the board should automatically reconnect as a serial device running the WPILib firmware
 * At this point, you can disconnect the XRP board from your computer and run it off battery power
