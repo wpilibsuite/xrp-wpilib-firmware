@@ -27,6 +27,8 @@ const unsigned char* GetResource_VERSION(size_t* len);
 char chipID[20];
 char DEFAULT_SSID[32];
 
+bool useFMSMode = false;
+
 XRPConfiguration config;
 NetworkMode netConfigResult;
 
@@ -57,6 +59,11 @@ void writeStatusToDisk() {
   size_t len;
   std::string versionString{reinterpret_cast<const char*>(GetResource_VERSION(&len)), len};
   f.printf("Version: %s\n", versionString.c_str());
+
+  if (useFMSMode) {
+    f.printf("FMS MODE SELECTED\n\n");
+  }
+
   f.printf("Chip ID: %s\n", chipID);
   f.printf("WiFi Mode: %s\n", netConfigResult == NetworkMode::AP ? "AP" : "STA");
   if (netConfigResult == NetworkMode::AP) {
@@ -68,6 +75,7 @@ void writeStatusToDisk() {
   }
 
   f.printf("IP Address: %s\n", WiFi.localIP().toString().c_str());
+  f.printf("MAC Address: %s\n", WiFi.macAddress().c_str());
   f.close();
 }
 
@@ -245,7 +253,6 @@ void updateLoopTime(unsigned long loopStart) {
   _avgLoopTimeUs = (totalTime + loopTime) / _loopTimeMeasurementCount;
 }
 
-
 void setup() {
   // Generate the default SSID using the flash ID
   pico_unique_board_id_t id_out;
@@ -262,6 +269,14 @@ void setup() {
   Wire1.begin();
 
   delay(2000);
+
+  // SPECIAL FOR XRP PARTY
+  // Hold down button until flashing starts to switch into FMS mode
+  pinMode(XRP_BUILTIN_BUTTON, INPUT_PULLUP);
+  delay(500);
+  if (digitalRead(XRP_BUILTIN_BUTTON) == LOW) {
+    useFMSMode = true;
+  }
 
   // Read Config
   config = loadConfiguration(DEFAULT_SSID);
@@ -283,7 +298,8 @@ void setup() {
   WiFi.setHostname(DEFAULT_SSID);
 
   // Use configuration information
-  netConfigResult = configureNetwork(config);
+  Serial.printf("[NET] Use FMS Mode? %s\n", useFMSMode ? "true" : "false");
+  netConfigResult = configureNetwork(config, useFMSMode);
   Serial.printf("[NET] Actual WiFi Mode: %s\n", netConfigResult == NetworkMode::AP ? "AP" : "STA");
 
   // Set up HTTP server routes
@@ -357,6 +373,6 @@ void loop1() {
   if (xrp::rangefinderInitialized()) {
     xrp::rangefinderPeriodic();
   }
-
+  
   delay(50);
 }

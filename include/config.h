@@ -24,5 +24,5 @@ class XRPConfiguration {
 };
 
 XRPConfiguration loadConfiguration(std::string defaultAPName);
-NetworkMode configureNetwork(XRPConfiguration config);
+NetworkMode configureNetwork(XRPConfiguration config, bool fmsMode = false);
 XRPConfiguration generateDefaultConfig(std::string defaultAP);

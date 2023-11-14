@@ -6,27 +6,46 @@
 
 #include "config.h"
 
-NetworkMode configureNetwork(XRPConfiguration config) {
+NetworkMode configureNetwork(XRPConfiguration config, bool fmsMode) {
+  // For XRP Party, we have 2 choices
+  // If we are NOT in FMS mode (default):
+  //   Only set up AP according to the config
+  // If we are in FMS mode
+  //   Attempt connection to the XRP FMS and fallback if necessary
   bool shouldUseAP = false;
   WiFiMulti multi;
 
-  if (config.networkConfig.mode == NetworkMode::AP) {
+  if (!fmsMode) {
     shouldUseAP = true;
   }
-  else if (config.networkConfig.mode == NetworkMode::STA) {
-    Serial.println("[NET] Attempting to start in STA Mode");
-    Serial.println("[NET] Trying the following networks:");
-    for (auto netInfo : config.networkConfig.networkList) {
-      Serial.printf("* %s\n", netInfo.first.c_str());
-      multi.addAP(netInfo.first.c_str(), netInfo.second.c_str());
-    }
+  else {
+    Serial.println("[NET] Attempting to connect to FMS");
+    multi.addAP("XRP-FMS-NET", "xrp-fms-network");
 
-    // Attempt to connect
+    // Attempt connect
     if (multi.run() != WL_CONNECTED) {
-      Serial.println("[NET] Failed to connect to any network on list. Falling back to AP");
+      Serial.println("[NET] FAILED to connect to FMS. Falling back to AP");
       shouldUseAP = true;
     }
   }
+
+  // if (config.networkConfig.mode == NetworkMode::AP || forceAP) {
+  //   shouldUseAP = true;
+  // }
+  // else if (config.networkConfig.mode == NetworkMode::STA) {
+  //   Serial.println("[NET] Attempting to start in STA Mode");
+  //   Serial.println("[NET] Trying the following networks:");
+  //   for (auto netInfo : config.networkConfig.networkList) {
+  //     Serial.printf("* %s\n", netInfo.first.c_str());
+  //     multi.addAP(netInfo.first.c_str(), netInfo.second.c_str());
+  //   }
+
+  //   // Attempt to connect
+  //   if (multi.run() != WL_CONNECTED) {
+  //     Serial.println("[NET] Failed to connect to any network on list. Falling back to AP");
+  //     shouldUseAP = true;
+  //   }
+  // }
 
   if (shouldUseAP) {
     Serial.println("[NET] Attempting to start in AP mode");
