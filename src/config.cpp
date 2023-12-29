@@ -30,10 +30,18 @@ NetworkMode configureNetwork(XRPConfiguration config) {
 
   if (shouldUseAP) {
     Serial.println("[NET] Attempting to start in AP mode");
+
+    // We apparently need to set up the IP address via softAPConfig now
+    // This might change again in future, but doing the explicit addressing
+    // here is probably safest.
+    IPAddress defaultIP {192, 168, 42, 1};
+    IPAddress subnetMask {255, 255, 255, 0};
+    WiFi.softAPConfig(defaultIP, defaultIP, subnetMask);
+
     bool result = WiFi.softAP(
           config.networkConfig.defaultAPName.c_str(),
           config.networkConfig.defaultAPPassword.c_str());
-    
+
     if (result) {
       Serial.println("[NET] AP Ready");
     }
@@ -100,7 +108,7 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
   File f = LittleFS.open("/config.json", "r");
   if (!f) {
     Serial.println("[CONFIG] No config file found. Creating default");
-    
+
     config = generateDefaultConfig(defaultAPName);
     writeConfigToDisk(config);
     return config;
