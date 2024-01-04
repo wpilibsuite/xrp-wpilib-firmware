@@ -23,16 +23,19 @@ window.onload = () => {
     saveButton.onclick = (e) => {
         e.preventDefault();
         console.log("Save Button Clicked");
+        
         try {
-            console.log(configJsonEntry.value.toString());
-
             // Check if can parse
             let jsonObj = JSON.parse(configJsonEntry.value);
             
-            // Check if password 8 characters or more
-            let password = jsonObj["network"]["defaultAP"]["password"];
-            if(password.length < 8 || password.length > 63) {
-                throw new Error("Default AP password must be at least 8 characters and less than 64 per WPA standards");
+            // Check if Defaul AP exists and has password 8 characters or more
+            if(jsonObj["network"] && jsonObj["network"]["defaultAP"] && jsonObj["network"]["defaultAP"]["password"]) {
+                let password = jsonObj["network"]["defaultAP"]["password"];
+                if(password.length < 8 || password.length > 63) {
+                    throw new Error("Default AP password must be at least 8 characters and less than 64 per WPA standards");
+                }
+            } else {
+                throw new Error("In \"network\", must have field \"defaultAP\": {\"ssid\":\"APname\", \"password\":\"mypassword\"}");
             }
 
             // Don't allow for escape characters
@@ -53,8 +56,7 @@ window.onload = () => {
             });
         }
         catch (e) {
-            console.log("Invalid JSON. Please check and try again. Error: " + e);
-            alert("Invalid JSON. Please check and try again.\n" + e);
+            alert("Invalid JSON. Please check and try again.\n" + e.message);
         }
     }
     
