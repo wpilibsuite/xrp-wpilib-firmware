@@ -1,5 +1,6 @@
 #include "robot.h"
 #include "encoder.pio.h"
+#include "encoder_period.pio.h"
 #include "wpilibudp.h"
 
 #include <map>
@@ -29,7 +30,6 @@ Servo servo2;
 
 // Encoder PIO
 PIO _encoderPio = nullptr;
-uint _encoderPgmOffset = 0;
 PIOProgram _encoderPgm(&encoder_program);
 
 // Encoders
@@ -46,6 +46,13 @@ int _encoderStateMachineIdx[4] = {-1, -1, -1, -1};
 PIO _encoderPioInstance[4] = {nullptr, nullptr, nullptr, nullptr};
 std::map<int, int> _encoderWPILibChannelToNativeMap;
 
+//Encoder Period PIO (needed for getRate())
+PIOProgram _encoder_periodPgm(&encoder_period_program);
+int _encoder_periodValuesLast[4] = {0, 0, 0, 0};
+int _encoder_periodValues[4] = {0, 0, 0, 0};
+int _encoder_periodStateMachineIdx[4] = {-1, -1, -1, -1};
+PIO _encoder_periodPioInstance[4] = {nullptr, nullptr, nullptr, nullptr};
+
 // Reflectance
 bool _reflectanceInitialized = false;
 
@@ -54,8 +61,13 @@ bool _rangefinderInitialized = false;
 float _rangefinderDistMetres = 0.0f;
 const float RANGEFINDER_MAX_DIST_M = 4.0f;
 
-// Internal helper functions
-bool _initEncoders() {
+typedef void(*PIO_Program_Init_Fn)(PIO,uint,uint,uint);
+
+//Internal helper functions
+bool _initEncoders(PIO pioInstances[], 
+                   int stateMachineIndexes[],
+                   PIO_Program_Init_Fn pgmInit) {
+
   for (int i = 0; i < 4; i++) {
     int _pgmOffset = -1;
     int _smIdx = -1;
@@ -66,16 +78,18 @@ bool _initEncoders() {
     }
 
     // Save values
-    _encoderPgmOffset = _pgmOffset;
-    _encoderPioInstance[i] = _pio;
-    _encoderStateMachineIdx[i] = _smIdx;
+    pioInstances[i] = _pio;
+    stateMachineIndexes[i] = _smIdx;
 
     // Init the program
     auto pins = _encoderPins.at(i);
-    encoder_program_init(_pio, _smIdx, _pgmOffset, pins.first);
+    pgmInit(_pio, _smIdx, _pgmOffset, pins.first);
   }
+}
 
-  return true;
+bool _initEncoders() {
+  return _initEncoders(_encoderPioInstance, _encoderStateMachineIdx, encoder_program_init) &&  //Init encoder counter program
+         _initEncoders(_encoder_periodPioInstance, _encoder_periodStateMachineIdx, encoder_period_program_init); //Init encoder period program
 }
 
 int _readEncoderInternal(PIO _pio, uint _smIdx) {
