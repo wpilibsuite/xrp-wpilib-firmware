@@ -47,11 +47,19 @@ PIO _encoderPioInstance[4] = {nullptr, nullptr, nullptr, nullptr};
 std::map<int, int> _encoderWPILibChannelToNativeMap;
 
 //Encoder Period PIO (needed for getRate())
+struct EncoderPeriod {
+  static constexpr int MAX_SAMPLES = 8;
+  unsigned int values[MAX_SAMPLES] = {};
+  bool directions[MAX_SAMPLES] = {};
+  int sample_count = 0;
+  int StateMachineIdx = -1;
+  unsigned long last_sample_time = 0;
+  PIO PioInstance = nullptr;
+
+  int read();
+} encoder_period[4];
+
 PIOProgram _encoder_periodPgm(&encoder_period_program);
-int _encoder_periodValuesLast[4] = {0, 0, 0, 0};
-int _encoder_periodValues[4] = {0, 0, 0, 0};
-int _encoder_periodStateMachineIdx[4] = {-1, -1, -1, -1};
-PIO _encoder_periodPioInstance[4] = {nullptr, nullptr, nullptr, nullptr};
 
 // Reflectance
 bool _reflectanceInitialized = false;
@@ -64,32 +72,37 @@ const float RANGEFINDER_MAX_DIST_M = 4.0f;
 typedef void(*PIO_Program_Init_Fn)(PIO,uint,uint,uint);
 
 //Internal helper functions
-bool _initEncoders(PIO pioInstances[], 
-                   int stateMachineIndexes[],
-                   PIO_Program_Init_Fn pgmInit) {
-
-  for (int i = 0; i < 4; i++) {
+bool _initEncoder(PIO& pio, int& sm, PIO_Program_Init_Fn pgmInit, int pin) {
     int _pgmOffset = -1;
     int _smIdx = -1;
     PIO _pio;
     if (!_encoderPgm.prepare(&_pio, &_smIdx, &_pgmOffset)) {
-      Serial.printf("[ENC-%u] Failed to set up program\n", i);
+      Serial.printf("[ENC-%u] Failed to set up program\n", pin);
       return false;
     }
 
     // Save values
-    pioInstances[i] = _pio;
-    stateMachineIndexes[i] = _smIdx;
+    pio = _pio;
+    sm = _smIdx;
 
     // Init the program
-    auto pins = _encoderPins.at(i);
-    pgmInit(_pio, _smIdx, _pgmOffset, pins.first);
-  }
+    pgmInit(_pio, _smIdx, _pgmOffset, pin);
+    return true;
 }
 
 bool _initEncoders() {
-  return _initEncoders(_encoderPioInstance, _encoderStateMachineIdx, encoder_program_init) &&  //Init encoder counter program
-         _initEncoders(_encoder_periodPioInstance, _encoder_periodStateMachineIdx, encoder_period_program_init); //Init encoder period program
+  unsigned long now = millis();
+  for(int i=0; i < 4; ++i) {
+    int pin = _encoderPins[i].first;
+    encoder_period[i].last_sample_time = now;
+    if(!_initEncoder(_encoderPioInstance[i], _encoderStateMachineIdx[i], encoder_program_init, pin))
+      return false;
+
+    if(!_initEncoder(encoder_period[i].PioInstance, encoder_period[i].StateMachineIdx, encoder_period_program_init, pin))
+      return false;
+  }
+
+  return true;
 }
 
 int _readEncoderInternal(PIO _pio, uint _smIdx) {
@@ -124,6 +137,25 @@ bool _readEncodersInternal() {
   }
 
   return hasChange;
+}
+
+int EncoderPeriod::read() {
+  if(!PioInstance)
+    return 0;
+
+  for(sample_count = 0; sample_count < MAX_SAMPLES && !pio_sm_is_rx_fifo_empty(PioInstance, StateMachineIdx); ++ sample_count) {
+    unsigned int raw_rx_fifo = pio_sm_get_blocking(PioInstance, StateMachineIdx);
+    unsigned int& value = values[sample_count];
+    bool& direction = directions[sample_count];
+
+    value = raw_rx_fifo >> 1;
+    direction = raw_rx_fifo & 1;
+  }
+
+  if(sample_count > 0)
+    last_sample_time = millis();
+
+  return sample_count;
 }
 
 void _initMotors() {
