@@ -49,6 +49,13 @@ void floatToNetwork(float num, char* buf, int offset) {
   buf[offset+3] = b[0];
 }
 
+void doubleToNetwork(double num, char* buf, int offset) {
+  unsigned char* b = (unsigned char *)&num;
+  for(int i=0, j=sizeof(double)-1; i < sizeof(double); ++i, --j) {
+    buf[offset+i] = b[j];
+  }
+}
+
 void int16ToNetwork(int16_t num, char* buf, int offset) {
   unsigned char b[2];
   memcpy(&b, &num, sizeof(num));

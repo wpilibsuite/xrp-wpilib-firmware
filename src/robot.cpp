@@ -1,7 +1,7 @@
 #include "robot.h"
 #include "encoder.pio.h"
-#include "encoder_period.pio.h"
 #include "wpilibudp.h"
+#include "encoder_period.h"
 
 #include <map>
 #include <vector>
@@ -47,19 +47,8 @@ PIO _encoderPioInstance[4] = {nullptr, nullptr, nullptr, nullptr};
 std::map<int, int> _encoderWPILibChannelToNativeMap;
 
 //Encoder Period PIO (needed for getRate())
-struct EncoderPeriod {
-  static constexpr int MAX_SAMPLES = 8;
-  unsigned int values[MAX_SAMPLES] = {};
-  bool directions[MAX_SAMPLES] = {};
-  int sample_count = 0;
-  int StateMachineIdx = -1;
-  unsigned long last_sample_time = 0;
-  PIO PioInstance = nullptr;
+EncoderPeriod encoder_period[4];
 
-  int read();
-} encoder_period[4];
-
-PIOProgram _encoder_periodPgm(&encoder_period_program);
 
 // Reflectance
 bool _reflectanceInitialized = false;
@@ -69,14 +58,12 @@ bool _rangefinderInitialized = false;
 float _rangefinderDistMetres = 0.0f;
 const float RANGEFINDER_MAX_DIST_M = 4.0f;
 
-typedef void(*PIO_Program_Init_Fn)(PIO,uint,uint,uint);
-
 //Internal helper functions
-bool _initEncoder(PIO& pio, int& sm, PIO_Program_Init_Fn pgmInit, int pin) {
+bool init_pio(PIO& pio, int& sm, PIOProgram& pgm, PIO_Program_Init_Fn pgmInit, int pin) {
     int _pgmOffset = -1;
     int _smIdx = -1;
     PIO _pio;
-    if (!_encoderPgm.prepare(&_pio, &_smIdx, &_pgmOffset)) {
+    if (!pgm.prepare(&_pio, &_smIdx, &_pgmOffset)) {
       Serial.printf("[ENC-%u] Failed to set up program\n", pin);
       return false;
     }
@@ -91,14 +78,12 @@ bool _initEncoder(PIO& pio, int& sm, PIO_Program_Init_Fn pgmInit, int pin) {
 }
 
 bool _initEncoders() {
-  unsigned long now = millis();
   for(int i=0; i < 4; ++i) {
     int pin = _encoderPins[i].first;
-    encoder_period[i].last_sample_time = now;
-    if(!_initEncoder(_encoderPioInstance[i], _encoderStateMachineIdx[i], encoder_program_init, pin))
+    if(!init_pio(_encoderPioInstance[i], _encoderStateMachineIdx[i], _encoderPgm, encoder_program_init, pin))
       return false;
 
-    if(!_initEncoder(encoder_period[i].PioInstance, encoder_period[i].StateMachineIdx, encoder_period_program_init, pin))
+    if(!encoder_period[i].init(pin))
       return false;
   }
 
@@ -139,24 +124,16 @@ bool _readEncodersInternal() {
   return hasChange;
 }
 
-int EncoderPeriod::read() {
-  if(!PioInstance)
-    return 0;
 
-  for(sample_count = 0; sample_count < MAX_SAMPLES && !pio_sm_is_rx_fifo_empty(PioInstance, StateMachineIdx); ++ sample_count) {
-    unsigned int raw_rx_fifo = pio_sm_get_blocking(PioInstance, StateMachineIdx);
-    unsigned int& value = values[sample_count];
-    bool& direction = directions[sample_count];
 
-    value = raw_rx_fifo >> 1;
-    direction = raw_rx_fifo & 1;
+int _updateEncoderPeriods() {
+  int count = 0;
+  for(auto& enc_per : encoder_period) {
+    count += enc_per.update();
   }
-
-  if(sample_count > 0)
-    last_sample_time = millis();
-
-  return sample_count;
+  return count;
 }
+
 
 void _initMotors() {
   // Left
@@ -290,6 +267,8 @@ uint8_t robotPeriodic() {
   if (!wpilibudp::dsWatchdogActive()) {
     _pwmShutoff();
   }
+
+  _updateEncoderPeriods();
 
   if (millis() - _lastRobotPeriodicCall < 50) return ret;
 

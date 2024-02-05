@@ -32,6 +32,11 @@ uint32_t networkToUInt32(char* buf, int offset = 0);
 void floatToNetwork(float num, char* buf, int offset = 0);
 
 /**
+ * Encode a double to a buffer in Network Byte Order
+*/
+void doubleToNetwork(double num, char* buf, int offset = 0);
+
+/**
  * Encode an Int16 to a buffer in Network Byte Order
 */
 void int16ToNetwork(int16_t num, char* buf, int offset = 0);

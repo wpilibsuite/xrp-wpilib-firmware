@@ -87,4 +87,8 @@ float getRangefinderDistance5V();
 void rangefinderPollForData();
 void rangefinderPeriodic();
 
+// Initialize PIO
+typedef void(*PIO_Program_Init_Fn)(PIO,uint,uint,uint);
+bool init_pio(PIO& pio, int& sm, PIOProgram& pgm, PIO_Program_Init_Fn pgmInit, int pin);
+
 } // namespace xrp
