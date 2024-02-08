@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include <limits>
+#include "encoder_period.pio.h"
 
 namespace xrp {
 
@@ -30,17 +31,25 @@ public:
 /****************************************************************
 *
 *  EncoderPeriod::getPeriod()
-*     Convert the latest period measurement of the encoder from
-*     an integer count to the length of the period in seconds
-*     as a double.
+*     Get last encoder period value returned by PIO.
 *  
 *****************************************************************/
 
-  double getPeriod();
+  uint getPeriod();
+
+/****************************************************************
+*
+*  EncoderPeriod::getDivisor()
+*     Get divisor for encoder period in ticks per second.
+*  
+*****************************************************************/
+
+ static constexpr uint getDivisor() {
+    return F_CPU * encoder_period_CYCLES_PER_COUNT;
+ }
 
 private:
-  unsigned value = INT_MAX;
-  bool direction = true;
+  uint value = UINT_MAX;
   int StateMachineIdx = -1;
   unsigned long last_sample_time = 0;
   PIO PioInstance = nullptr;

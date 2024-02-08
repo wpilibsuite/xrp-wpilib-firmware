@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <vector>
+#include "encoder_period.h"
 
 // Hardware Pin defs
 
@@ -64,6 +65,7 @@ void robotSetEnabled(bool enabled);
 void configureEncoder(int deviceId, int chA, int chB);
 int readEncoder(int deviceId);
 int readEncoderRaw(int rawDeviceId);
+uint readEncoderPeriod(int rawDeviceId);
 void resetEncoder(int deviceId);
 std::vector<std::pair<int,int> > getActiveEncoderValues();
 

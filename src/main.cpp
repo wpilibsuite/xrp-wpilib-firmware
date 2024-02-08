@@ -111,14 +111,19 @@ void sendData() {
   // Encoders
   for (int i = 0; i < 4; i++) {
     int encoderValue = xrp::readEncoderRaw(i);
+    uint encoderPeriod = xrp::readEncoderPeriod(i);
 
     // We want to flip the encoder 0 value (left motor encoder) so that this returns
     // positive values when moving forward.
     if (i == 0) {
       encoderValue = -encoderValue;
+      encoderPeriod ^= 1; //Last bit is direction bit; Flip it.
     }
 
+    static constexpr uint divisor = xrp::EncoderPeriod::getDivisor();
+
     ptr += wpilibudp::writeEncoderData(i, encoderValue, buffer, ptr);
+    ptr += wpilibudp::writeEncoderPeriodData(i, encoderPeriod, divisor, buffer, ptr);
   } // 4x 7 bytes
 
   // DIO (currently just the button)

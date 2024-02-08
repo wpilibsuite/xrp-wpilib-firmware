@@ -345,6 +345,10 @@ int readEncoderRaw(int rawDeviceId) {
   return _encoderValues[rawDeviceId];
 }
 
+uint readEncoderPeriod(int rawDeviceId) {
+  return encoder_period[rawDeviceId].getPeriod();
+}
+
 void resetEncoder(int deviceId) {
   if (_encoderWPILibChannelToNativeMap.count(deviceId) > 0) {
     int idx = _encoderWPILibChannelToNativeMap[deviceId];
