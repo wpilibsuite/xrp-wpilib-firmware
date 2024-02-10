@@ -122,9 +122,8 @@ void sendData() {
 
     static constexpr uint divisor = xrp::EncoderPeriod::getDivisor();
 
-    ptr += wpilibudp::writeEncoderData(i, encoderValue, buffer, ptr);
-    ptr += wpilibudp::writeEncoderPeriodData(i, encoderPeriod, divisor, buffer, ptr);
-  } // 4x 7 bytes
+    ptr += wpilibudp::writeEncoderData(i, encoderValue, encoderPeriod, divisor, buffer, ptr);
+  } // 4x 15 bytes
 
   // DIO (currently just the button)
   ptr += wpilibudp::writeDIOData(0, xrp::isUserButtonPressed(), buffer, ptr);

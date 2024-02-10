@@ -135,27 +135,20 @@ bool processPacket(char* buffer, int size) {
 // Message Encoders
 // ===================
 
-int writeEncoderData(int deviceId, int count, char* buffer, int offset) {
+int writeEncoderData(int deviceId, int count, uint period, uint divisor, char* buffer, int offset) {
   // Encoder message is 6 bytes
-  // tag(1) id(1) int(4)
-  buffer[offset] = 6;
-  buffer[offset+1] = XRP_TAG_ENCODER;
-  buffer[offset+2] = deviceId & 0xFF;
-  int32ToNetwork(count, buffer, offset+3);
-  return 7; // +1 for the size byte
-}
-
-int writeEncoderPeriodData(int deviceId, uint period, uint divisor, char* buffer, int offset) {
-  // Encoder Period message is 10 bytes
-  // tag(1) id(1) int(4) int(4)
-  buffer[offset++] = 2 + sizeof(uint) + sizeof(uint);
-  buffer[offset++] = XRP_TAG_ENCODER_PERIOD;
-  buffer[offset++] = deviceId & 0xFF;
-  int32ToNetwork(period, buffer, offset);
-  offset += sizeof(uint);
-  int32ToNetwork(divisor, buffer, offset);
-  offset += sizeof(uint);
-  return offset; // +1 for the size byte
+  // tag(1) id(1) int(4) uint(4) uint(4)
+  int i = offset;
+  buffer[i++] = 2 + sizeof(int); // + sizeof(uint) + sizeof(uint);
+  buffer[i++] = XRP_TAG_ENCODER;
+  buffer[i++] = deviceId & 0xFF;
+  int32ToNetwork(count, buffer, i);
+  i += sizeof(int);
+  // int32ToNetwork(period, buffer, i);
+  // i += sizeof(uint);
+  // int32ToNetwork(divisor, buffer, i);
+  // i += sizeof(uint);
+  return i-offset; // +1 for the size byte
 }
 
 int writeDIOData(int deviceId, bool value, char* buffer, int offset) {
