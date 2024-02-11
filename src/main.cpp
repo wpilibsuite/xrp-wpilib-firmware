@@ -13,7 +13,8 @@
 #include "config.h"
 #include "imu.h"
 #include "robot.h"
-#include "wpilibudp.h"
+#include "wpilibudp.h" 
+#include "encoder.h"
 
 // Resource strings
 extern "C" {
@@ -120,7 +121,7 @@ void sendData() {
       encoderPeriod ^= 1; //Last bit is direction bit; Flip it.
     }
 
-    static constexpr uint divisor = xrp::EncoderPeriod::getDivisor();
+    static constexpr uint divisor = xrp::Encoder::getDivisor();
 
     ptr += wpilibudp::writeEncoderData(i, encoderValue, encoderPeriod, divisor, buffer, ptr);
   } // 4x 15 bytes

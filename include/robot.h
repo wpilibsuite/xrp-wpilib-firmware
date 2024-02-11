@@ -2,7 +2,6 @@
 
 #include <Arduino.h>
 #include <vector>
-#include "encoder_period.h"
 
 // Hardware Pin defs
 
@@ -63,11 +62,8 @@ void robotSetEnabled(bool enabled);
 
 // Encoder Related
 void configureEncoder(int deviceId, int chA, int chB);
-int readEncoder(int deviceId);
 int readEncoderRaw(int rawDeviceId);
 uint readEncoderPeriod(int rawDeviceId);
-void resetEncoder(int deviceId);
-std::vector<std::pair<int,int> > getActiveEncoderValues();
 
 // PWM Related
 void setPwmValue(int wpilibChannel, double value);
@@ -88,9 +84,5 @@ bool rangefinderInitialized();
 float getRangefinderDistance5V();
 void rangefinderPollForData();
 void rangefinderPeriodic();
-
-// Initialize PIO
-typedef void(*PIO_Program_Init_Fn)(PIO,uint,uint,uint);
-bool init_pio(PIO& pio, int& sm, PIOProgram& pgm, PIO_Program_Init_Fn pgmInit, int pin);
 
 } // namespace xrp

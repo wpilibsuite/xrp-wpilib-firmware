@@ -1,15 +1,15 @@
 #pragma once
 #include <Arduino.h>
 #include <limits>
-#include "encoder_period.pio.h"
+#include "encoder2.pio.h"
 
 namespace xrp {
 
-class EncoderPeriod {
+class Encoder {
 public:
 /****************************************************************
 *
-*  EncoderPeriod::init()
+*  Encoder::init()
 *     Initialize PIO program that measures encoder period.
 *
 *  Returns true on sucess.
@@ -19,37 +19,49 @@ public:
 
 /****************************************************************
 *
-*  EncoderPeriod::update()
-*     Get the latest encoder period from the PIO if available
-*     and store it.
+*  Encoder::update()
+*     Get the latest encoder period(s) from the PIO if available
+*     store the latest, and updated the tick count.
 *  
-*  Returns number of samples that were stored (0 or 1);
+*  Returns number of samples that were retrieved.
 *  
 *****************************************************************/
   int update();
 
 /****************************************************************
 *
-*  EncoderPeriod::getPeriod()
-*     Get last encoder period value returned by PIO.
+*  Encoder::getPeriod()
+*     Return the period calculated by the PIO in the following format:
+*     31                           1   0
+*    |  Period in 12-cycle ticks    | dir |
+*  
+*    This is the same format return by the PIO.
 *  
 *****************************************************************/
-
   uint getPeriod();
 
 /****************************************************************
 *
-*  EncoderPeriod::getDivisor()
+*  Encoder::getCount()
+*     Return the number of encoder ticks since the robot started.
+*
+*****************************************************************/
+  int getCount() ;
+
+/****************************************************************
+*
+*  Encoder::getDivisor()
 *     Get divisor for encoder period in ticks per second.
 *  
 *****************************************************************/
 
  static constexpr uint getDivisor() {
-    return F_CPU * encoder_period_CYCLES_PER_COUNT;
+    return F_CPU * encoder2_CYCLES_PER_COUNT;
  }
 
 private:
-  uint value = UINT_MAX;
+  uint period = UINT_MAX;
+  int count = 0;
   int StateMachineIdx = -1;
   unsigned long last_sample_time = 0;
   PIO PioInstance = nullptr;

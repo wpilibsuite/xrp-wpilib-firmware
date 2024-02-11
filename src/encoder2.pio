@@ -1,0 +1,136 @@
+; encoder2 is a PIO program that measures the period between encoder ticks,
+; and it can also be used by the robot code to keep track of the number of
+; encoder ticks.
+;
+; Copyright (C) 2024 Brian LePage
+;
+; Redistribution and use in source and binary forms, with or without
+; modification, are permitted provided that the following conditions
+; are met:
+; 1. Redistributions of source code must retain the above copyright
+;    notice, this list of conditions and the following disclaimer.
+; 2. Redistributions in binary form must reproduce the above copyright
+;    notice, this list of conditions and the following disclaimer in the
+;    documentation and/or other materials provided with the distribution.
+; 3. The name of the author may not be used to endorse or promote products
+;    derived from this software without specific prior written permission.
+;
+; THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+; IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+; OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+; IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+; INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+; NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+; DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+; THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+; (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+.program encoder2
+.origin 0
+
+.define PUBLIC VERSION 102 
+.define PUBLIC CYCLES_PER_COUNT 16
+
+; This PIO program monitors the encoder inputs to measure the period
+; between encoder pulses.  At the start of a period, a 31-bit counter is
+; initialized to its maximum value (0x7FFFFFFF) and is decremented every 16 cycles
+; until the start of the next period.  The period start/end is determined
+; by the transition of the encoder signals from one state to another (e.g., 01 -> 11 or 01 -> 00) 
+
+; Every period, the total count is passed to the robot code through the RX FIFO.
+; The upper 31 bits is the count.  It represents the number of 16-cycle intervals
+; that passed between encoder ticks.
+; The LSB will indicate the direction (1 for forward, 0 for reverse).
+
+; Robot code will calculate the period in 16-cycle increments and direction as follows:
+;      unsigned int rx_fifo = pio_sm_get_blocking(pio, sm);
+;      bool direction = rx_fifo & 1;
+;      unsigned int period = (rx_fifo >> 1);
+
+
+; If the direction changes between pulses, the calculated period is not reliable.
+; Robot code will have to check if the direction changed between the previous
+; sample and the current one and assume the motor has stopped if the direction changed.
+;      if(last_direction != direction)
+;           period = INT_MAX;
+
+; The number of values read from the RX FIFO can be used by the robot code
+; to keep track of encoder count, incrementing the count when the direction
+; is forward, and decrementing the count when it is reverse.
+; For example:
+;      count += direction ? 1 : -1;
+
+; x register stores the current count (negated because it is counting down)
+; y register stores the current direction (0xFFFFFFFF => forward, 0 => reverse)
+
+; when reading encoder inputs, isr will get current state; previous state is saved to osr
+
+; Jump Table
+; Program Counter is moved to memory addr 0000 - 1111, based on
+; previous (left 2) bits and current (right 2 bits) pin states
+
+; block 00xx
+jmp decr [11] ; 00 -> 00 No change, increment period count
+jmp rev [3]; 00 -> 01 Reverse
+jmp fwd [3]; 00 -> 10 Forward
+jmp clear_x [11]; 00 -> 11 Impossible, assume stopped.
+
+; block 01xx
+jmp fwd [3]; 01 -> 00 Forward
+jmp decr [11]; 01 -> 01 No change, increment period count
+jmp clear_x [11] ; 01 -> 10 Impossible, assume stopped
+jmp rev [3]; 01 -> 11 Reverse
+
+; block 10xx
+jmp rev [3]; 10 -> 00 Reverse
+jmp clear_x [11]; 10 -> 01 Impossible, assume stopped
+jmp decr [11] ; 10 -> 10 No change, increment period count
+jmp fwd [3]; 10 -> 11 Forward
+
+; block 11xx
+jmp clear_x [11]; 11 -> 00 Impossible, assume stopped
+jmp fwd [3]; 11 -> 01 Forward
+jmp rev [3] ; 11 -> 10 Reverse
+jmp decr [11]; 11 -> 11 No change, increment period count
+
+.wrap_target
+decr:
+   jmp x--, read    ; decrement period counter
+clear_x:
+   set x, 0         ; don't go below 0, if at 0, motor is stopped.
+read:
+   in pins, 2       ; shift in current state
+   mov osr, isr     ; move isr to osr, so we can shift only 4 bits to pc
+   out pc, 4        ; goto jump table based on previous/current state.
+
+rev:
+   jmp !y, send_period ;if direction did not change, send count
+dir_changed:
+   mov y,~y            ;change direction
+   jmp send_period     ;send updated count
+
+fwd:
+   jmp !y, dir_changed ;if direction changed, toggle direction
+send_period:
+   mov osr,isr         ;save away state
+   mov isr,~x          ;move count into input register
+   in y, 1             ;append direction bit
+   push noblock        ;send period/direction to robot code
+   out isr,2           ;restore last state to isr
+   mov osr,~null       ;set all bits in osr
+   out x, 31           ;set 31 bits of x register        
+.wrap
+
+% c-sdk {
+static inline void encoder2_program_init(PIO pio, uint sm, uint offset, uint base_pin) {
+    pio_sm_config c = encoder2_program_get_default_config(offset);
+
+    sm_config_set_in_pins(&c, base_pin);
+    sm_config_set_in_shift(&c, false, false, 32);
+    sm_config_set_out_shift(&c, true, false, 32);
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}

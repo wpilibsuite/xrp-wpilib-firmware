@@ -136,18 +136,18 @@ bool processPacket(char* buffer, int size) {
 // ===================
 
 int writeEncoderData(int deviceId, int count, uint period, uint divisor, char* buffer, int offset) {
-  // Encoder message is 6 bytes
+  // Encoder message is 14 bytes
   // tag(1) id(1) int(4) uint(4) uint(4)
   int i = offset;
-  buffer[i++] = 2 + sizeof(int); // + sizeof(uint) + sizeof(uint);
+  buffer[i++] = 2 + sizeof(int) + sizeof(uint) + sizeof(uint);
   buffer[i++] = XRP_TAG_ENCODER;
   buffer[i++] = deviceId & 0xFF;
   int32ToNetwork(count, buffer, i);
   i += sizeof(int);
-  // int32ToNetwork(period, buffer, i);
-  // i += sizeof(uint);
-  // int32ToNetwork(divisor, buffer, i);
-  // i += sizeof(uint);
+  int32ToNetwork(period, buffer, i);
+  i += sizeof(uint);
+  int32ToNetwork(divisor, buffer, i);
+  i += sizeof(uint);
   return i-offset; // +1 for the size byte
 }
 
