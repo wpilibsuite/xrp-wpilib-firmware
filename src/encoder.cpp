@@ -101,7 +101,7 @@ int Encoder::update() {
 *  
 *    This is the same format return by the PIO.
 *    (Note: PIO calculated value may be overidden if a relatively
-*     large amount has passed since the last sample from the PIO).
+*     large amount of time has passed since the last sample from the PIO).
 *
 *****************************************************************/
 
