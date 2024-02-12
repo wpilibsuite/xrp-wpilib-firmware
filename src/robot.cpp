@@ -38,7 +38,7 @@ std::vector<std::pair<int, int> > _encoderPins = {
 std::map<int, int> _encoderWPILibChannelToNativeMap;
 
 //Encoder PIO
-Encoder encoder[4];
+Encoder encoders[4];
 
 
 // Reflectance
@@ -53,7 +53,7 @@ bool _initEncoders() {
   for(int i=0; i < 4; ++i) {
     int pin = _encoderPins[i].first;
 
-    if(!encoder[i].init(pin)) {
+    if(!encoders[i].init(pin)) {
       Serial.printf("[ENC-%u] Failed to set up program.\n", i);
       return false;
     }
@@ -65,8 +65,8 @@ bool _initEncoders() {
 int _updateEncoders() {
   int count = 0;
   for(int i=0; i < 4; ++i) {
-    auto& enc = encoder[i];
-    int next = enc.update();
+    auto& encoder = encoders[i];
+    int next = encoder.update();
     if(next >= 8) {
       Serial.printf("[ENC-%u] Encoder Possible PIO RX Buffer Overrun: %d\n", i, next);
     }
@@ -236,6 +236,9 @@ void robotSetEnabled(bool enabled) {
   // Prevent motors from starting with arbitrary values when enabling
   if (!_robotEnabled && enabled) {
     _pwmShutoff();
+    for(auto& encoder : encoders) {
+      encoder.enable();
+    }
   }
 
   bool prevEnabledValue = _robotEnabled;
@@ -244,6 +247,9 @@ void robotSetEnabled(bool enabled) {
   if (prevEnabledValue && !enabled) {
     Serial.println("[XRP] Disabling");
     _pwmShutoff();
+    for(auto& encoder : encoders) {
+      encoder.disable();
+    }
   }
   else if (!prevEnabledValue && enabled) {
     Serial.println("[XRP] Enabling");
@@ -269,11 +275,11 @@ void configureEncoder(int deviceId, int chA, int chB) {
 }
 
 int readEncoderRaw(int rawDeviceId) {
-  return encoder[rawDeviceId].getCount();
+  return encoders[rawDeviceId].getCount();
 }
 
 uint readEncoderPeriod(int rawDeviceId) {
-  return encoder[rawDeviceId].getPeriod();
+  return encoders[rawDeviceId].getPeriod();
 }
 
 void setPwmValue(int wpilibChannel, double value) {

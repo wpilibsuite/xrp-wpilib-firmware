@@ -45,15 +45,44 @@ static PIOProgram encoderProgram(&encoder2_program);
 
 bool Encoder::init(int pin) {
   last_sample_time = millis();
-  int offset = -1;
+
+  this->pin = pin;
 
   if (!encoderProgram.prepare(&PioInstance, &StateMachineIdx, &offset)) {
     return false;
   }
 
-  encoder2_program_init(PioInstance, StateMachineIdx, offset, pin);
-
   return true;
+}
+
+/****************************************************************
+*
+*  Encoder::enable()
+*     Enable the encoder.
+*
+*  
+*****************************************************************/
+
+void Encoder::enable() {
+  if(PioInstance) {
+    encoder2_program_init(PioInstance, StateMachineIdx, offset, pin);
+    enabled = true;
+  }
+}
+
+/****************************************************************
+*
+*  Encoder::disable()
+*     Disable the encoder.
+*
+*  
+*****************************************************************/
+
+void Encoder::disable() {
+  if(PioInstance)
+    pio_sm_set_enabled(PioInstance, StateMachineIdx, false);
+
+  enabled = false;
 }
 
 /****************************************************************
@@ -67,7 +96,7 @@ bool Encoder::init(int pin) {
 *****************************************************************/
 
 int Encoder::update() {
-  if(!PioInstance)
+  if(!enabled || !PioInstance)
     return 0;
 
   int found = 0;
@@ -108,6 +137,9 @@ static constexpr uint ONE_MINUTE = 60000;
 static constexpr uint TICKS_PER_MS = F_CPU / (1000 * encoder2_CYCLES_PER_COUNT);
 
 uint Encoder::getPeriod() {
+  if(!enabled)
+    return UINT_MAX;
+
   unsigned long time = millis()-last_sample_time;
   //If the time since the last sample is more than the last calculated period,
   //motor has slowed down significantly.  It may be a bit before we get another tick (motor may be stopped);

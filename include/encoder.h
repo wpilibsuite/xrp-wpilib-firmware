@@ -48,6 +48,24 @@ public:
 
 /****************************************************************
 *
+*  Encoder::enable()
+*     Enable the encoder.
+*
+*  
+*****************************************************************/
+  void enable();
+
+/****************************************************************
+*
+*  Encoder::disable()
+*     Disable the encoder.
+*
+*  
+*****************************************************************/
+  void disable();
+
+/****************************************************************
+*
 *  Encoder::update()
 *     Get the latest encoder period(s) from the PIO if available
 *     store the latest, and updated the tick count.
@@ -94,6 +112,9 @@ private:
   int StateMachineIdx = -1;
   unsigned long last_sample_time = 0;
   PIO PioInstance = nullptr;
+  int pin = 0;
+  int offset = -1;
+  bool enabled = false;
 }; 
 
 }
