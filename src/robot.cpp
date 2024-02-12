@@ -53,8 +53,10 @@ bool _initEncoders() {
   for(int i=0; i < 4; ++i) {
     int pin = _encoderPins[i].first;
 
-    if(!encoder[i].init(pin))
+    if(!encoder[i].init(pin)) {
+      Serial.printf("[ENC-%u] Failed to set up program.\n", i);
       return false;
+    }
   }
 
   return true;
@@ -62,8 +64,13 @@ bool _initEncoders() {
 
 int _updateEncoders() {
   int count = 0;
-  for(auto& enc_per : encoder) {
-    count += enc_per.update();
+  for(int i=0; i < 4; ++i) {
+    auto& enc = encoder[i];
+    int next = enc.update();
+    if(next >= 8) {
+      Serial.printf("[ENC-%u] Encoder Possible PIO RX Buffer Overrun: %d\n", i, next);
+    }
+    count += next;
   }
   return count;
 }

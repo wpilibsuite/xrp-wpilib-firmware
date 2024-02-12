@@ -36,7 +36,7 @@ static PIOProgram encoderProgram(&encoder2_program);
 
 /****************************************************************
 *
-*  EncoderPeriod::init()
+*  Encoder::init()
 *     Initialize PIO program that measures encoder period.
 *
 *  Returns true on sucess.
@@ -48,7 +48,6 @@ bool Encoder::init(int pin) {
   int offset = -1;
 
   if (!encoderProgram.prepare(&PioInstance, &StateMachineIdx, &offset)) {
-    Serial.printf("[ENC-%u] Failed to set up program %p\n", pin);
     return false;
   }
 
@@ -59,7 +58,7 @@ bool Encoder::init(int pin) {
 
 /****************************************************************
 *
-*  EncoderPeriod::update()
+*  Encoder::update()
 *     Get the latest encoder period(s) from the PIO if available
 *     store the latest, and updated the tick count.
 *  
@@ -94,7 +93,7 @@ int Encoder::update() {
 
 /****************************************************************
 *
-*  EncoderPeriod::getPeriod()
+*  Encoder::getPeriod()
 *     Return the period calculated by the PIO in the following format:
 *     31                           1   0
 *    |  Period in 12-cycle ticks    | dir |
@@ -135,7 +134,7 @@ uint Encoder::getPeriod() {
 
 /****************************************************************
 *
-*  EncoderPeriod::getCount()
+*  Encoder::getCount()
 *     Return the number of encoder ticks since the robot started.
 *
 *****************************************************************/
