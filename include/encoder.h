@@ -30,12 +30,16 @@
 #pragma once
 #include <Arduino.h>
 #include <limits>
+#include <vector>
 #include "encoder2.pio.h"
 
 namespace xrp {
 
 class Encoder {
 public:
+
+  Encoder() : period_queue(samples_to_average()) {}
+
 /****************************************************************
 *
 *  Encoder::init()
@@ -44,7 +48,7 @@ public:
 *  Returns true on sucess.
 *  
 *****************************************************************/
-  bool init(int pin);
+  bool init(const int pin);
 
 /****************************************************************
 *
@@ -77,10 +81,20 @@ public:
 
 /****************************************************************
 *
+*  Encoder::setSamplesToAverage()
+*     Set the number of Encoder period samples to average together to
+*     calculate period.
+*
+*****************************************************************/
+
+void setSamplesToAverage(const int n);
+
+/****************************************************************
+*
 *  Encoder::getPeriod()
 *     Return the period calculated by the PIO in the following format:
 *     31                           1   0
-*    |  Period in 12-cycle ticks    | dir |
+*    |  Period in 16-cycle ticks    | dir |
 *  
 *    This is the same format return by the PIO.
 *  
@@ -93,7 +107,7 @@ public:
 *     Return the number of encoder ticks since the robot started.
 *
 *****************************************************************/
-  int getCount() ;
+  int getCount() const;
 
 /****************************************************************
 *
@@ -103,18 +117,32 @@ public:
 *****************************************************************/
 
  static constexpr uint getDivisor() {
-    return F_CPU * encoder2_CYCLES_PER_COUNT;
+    return F_CPU / encoder2_CYCLES_PER_COUNT;
  }
 
 private:
-  uint period = UINT_MAX;
-  int count = 0;
+  uint period = 0;
+  int period_fraction = 0;
+  uint saved_period = UINT_MAX;
+  bool direction = true;
+  bool saved_direction = true;
+  int samples_to_average_shift = 3;
+  int sample_count = 0;
+  int sample_index = 0;
+  std::vector<uint> period_queue;
+  uint count = 0;
   int StateMachineIdx = -1;
   unsigned long last_sample_time = 0;
   PIO PioInstance = nullptr;
   int pin = 0;
   int offset = -1;
   bool enabled = false;
+  void clearPeriodQueue();
+  uint getFraction(const uint count) const;
+  uint getWholeNumber(const uint count) const;
+  constexpr uint samples_to_average() const {
+    return 1 << samples_to_average_shift;
+  }
 }; 
 
 }

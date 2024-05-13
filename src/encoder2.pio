@@ -51,9 +51,7 @@
 
 ; If the direction changes between pulses, the calculated period is not reliable.
 ; Robot code will have to check if the direction changed between the previous
-; sample and the current one and assume the motor has stopped if the direction changed.
-;      if(last_direction != direction)
-;           period = INT_MAX;
+; sample and the current one the robot code has to decide what to do.
 
 ; The number of values read from the RX FIFO can be used by the robot code
 ; to keep track of encoder count, incrementing the count when the direction

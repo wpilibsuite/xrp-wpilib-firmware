@@ -43,7 +43,7 @@ static PIOProgram encoderProgram(&encoder2_program);
 *  
 *****************************************************************/
 
-bool Encoder::init(int pin) {
+bool Encoder::init(const int pin) {
   last_sample_time = millis();
 
   this->pin = pin;
@@ -95,37 +95,102 @@ void Encoder::disable() {
 *  
 *****************************************************************/
 
+uint Encoder::getFraction(const uint count) const {
+  return count & (samples_to_average() - 1);
+} 
+
+uint Encoder::getWholeNumber(const uint count) const {
+  return count >> samples_to_average_shift;
+}
+
 int Encoder::update() {
   if(!enabled || !PioInstance)
     return 0;
 
   int found = 0;
   uint raw_rx_fifo = period;
+  uint prev_raw_rx_fifo;
   bool prev_direction;
-  bool direction = period & 1;
+
+  //Read any Encoder periods calculated by the PIO from its input FIFO.
+
   while(!pio_sm_is_rx_fifo_empty(PioInstance, StateMachineIdx)) {
+    prev_raw_rx_fifo = raw_rx_fifo;
     prev_direction = direction;
+
     raw_rx_fifo = pio_sm_get_blocking(PioInstance, StateMachineIdx);
     direction = raw_rx_fifo & 1;
+    raw_rx_fifo >>= 1;
     count += direction ? 1 : -1;
     found++;
+
+    //When direction changes, clear the queue
+    if(direction != prev_direction) {
+      clearPeriodQueue();
+    }
+
+    //When queue is full, remove oldest sample from queue
+    if(sample_count == samples_to_average()) {
+      period_fraction -= getFraction(period_queue[sample_index]);
+      if(period_fraction < 0) {
+        period -= 1;
+        period_fraction += samples_to_average();
+      }
+      period -= getWholeNumber(period_queue[sample_index]);
+      --sample_count;
+    }
+
+    //Add new sample to queue
+    period += getWholeNumber(raw_rx_fifo);
+    period_fraction += getFraction(raw_rx_fifo);
+    if(period_fraction >= samples_to_average()) {
+      ++period;
+      period_fraction = getFraction(period_fraction);
+    }
+    period_queue[sample_index++] = raw_rx_fifo; 
+    ++sample_count;
+    if(sample_index == samples_to_average())
+      sample_index = 0;
   }
 
   if(found) {
     last_sample_time = millis();
-    period = (prev_direction == direction) ? raw_rx_fifo : INT_MAX;
   }
 
   return found;
 }
 
+/****************************************************************
+*
+*  Encoder::setSamplesToAverage()
+*     Set the number of Encoder period samples to average together to
+*     calculate period.
+*
+*****************************************************************/
+
+void Encoder::clearPeriodQueue() {
+  sample_count = 0;
+  sample_index = 0;
+  period = 0;
+  period_fraction = 0;
+}
+
+void Encoder::setSamplesToAverage(const int n) {
+  samples_to_average_shift = 1;
+  while(samples_to_average() < n) {
+    ++samples_to_average_shift;
+  }
+
+  clearPeriodQueue();
+  period_queue.resize(samples_to_average());
+}
 
 /****************************************************************
 *
 *  Encoder::getPeriod()
 *     Return the period calculated by the PIO in the following format:
 *     31                           1   0
-*    |  Period in 12-cycle ticks    | dir |
+*    |  Period in 16-cycle ticks    | dir |
 *  
 *    This is the same format return by the PIO.
 *    (Note: PIO calculated value may be overidden if a relatively
@@ -141,6 +206,14 @@ uint Encoder::getPeriod() {
     return UINT_MAX;
 
   unsigned long time = millis()-last_sample_time;
+
+  //Only use period calculated by PIO if we've collected enough samples
+  //to average together (period_queue is full).
+  if(sample_count == samples_to_average()) {
+    saved_direction = direction;
+    saved_period = period;
+  }
+
   //If the time since the last sample is more than the last calculated period,
   //motor has slowed down significantly.  It may be a bit before we get another tick (motor may be stopped);
   //use the actual time passed instead of the period calculated by the PIO to minimize
@@ -149,19 +222,23 @@ uint Encoder::getPeriod() {
   if(time > ONE_MINUTE)  //If it's been a minute, assume motor is stopped.
     return UINT_MAX;     //Return max period; forward direction (direction shouldn't matter).
 
-  //Convert PIO calculated period to ms
-  uint period_ms = (period >> 1) / TICKS_PER_MS;
+  //Convert PIO calculated period to ms (rounded up)
+  uint period_ms = saved_period / TICKS_PER_MS + 1;
 
   //If PIO value is correct, the amount of time that has passed since the last sample
   //should be less than or equal to period calculated by the PIO.
   //Otherwise, motor may have slowed way down; use the time passed for the current period length.
-  if(time > period_ms) {
+  
+  //If time since last sample is significantly longer than the last period returned by the PIO,
+  //use the time passed instead.
+
+  if(time >= period_ms * 16) {
     uint adjusted_period = time * TICKS_PER_MS;
-    return (adjusted_period << 1) | (period & 1);
+    return (adjusted_period << 1) | saved_direction;
   }
 
   //We've received a sample within a reasonable period of time.  Return the PIO calculated value.
-  return period;
+  return (saved_period << 1) | saved_direction;
 }
 
 /****************************************************************
@@ -170,7 +247,8 @@ uint Encoder::getPeriod() {
 *     Return the number of encoder ticks since the robot started.
 *
 *****************************************************************/
-int Encoder::getCount() {
+int Encoder::getCount() const {
   return count;
 }
 } //namespace XRP
+
