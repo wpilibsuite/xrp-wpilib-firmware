@@ -1,6 +1,6 @@
 #include "robot.h"
-#include "encoder.pio.h"
 #include "wpilibudp.h"
+#include "encoder.h"
 
 #include <map>
 #include <vector>
@@ -27,11 +27,6 @@ bool _lastUserButtonState = false;
 Servo servo1;
 Servo servo2;
 
-// Encoder PIO
-PIO _encoderPio = nullptr;
-uint _encoderPgmOffset = 0;
-PIOProgram _encoderPgm(&encoder_program);
-
 // Encoders
 std::vector<std::pair<int, int> > _encoderPins = {
   {4, 5},
@@ -40,11 +35,11 @@ std::vector<std::pair<int, int> > _encoderPins = {
   {8, 9}
 };
 
-int _encoderValuesLast[4] = {0, 0, 0, 0};
-int _encoderValues[4] = {0, 0, 0, 0};
-int _encoderStateMachineIdx[4] = {-1, -1, -1, -1};
-PIO _encoderPioInstance[4] = {nullptr, nullptr, nullptr, nullptr};
 std::map<int, int> _encoderWPILibChannelToNativeMap;
+
+//Encoder PIO
+Encoder encoders[4];
+
 
 // Reflectance
 bool _reflectanceInitialized = false;
@@ -54,63 +49,32 @@ bool _rangefinderInitialized = false;
 float _rangefinderDistMetres = 0.0f;
 const float RANGEFINDER_MAX_DIST_M = 4.0f;
 
-// Internal helper functions
 bool _initEncoders() {
-  for (int i = 0; i < 4; i++) {
-    int _pgmOffset = -1;
-    int _smIdx = -1;
-    PIO _pio;
-    if (!_encoderPgm.prepare(&_pio, &_smIdx, &_pgmOffset)) {
-      Serial.printf("[ENC-%u] Failed to set up program\n", i);
+  for(int i=0; i < 4; ++i) {
+    int pin = _encoderPins[i].first;
+
+    if(!encoders[i].init(pin)) {
+      Serial.printf("[ENC-%u] Failed to set up program.\n", i);
       return false;
     }
-
-    // Save values
-    _encoderPgmOffset = _pgmOffset;
-    _encoderPioInstance[i] = _pio;
-    _encoderStateMachineIdx[i] = _smIdx;
-
-    // Init the program
-    auto pins = _encoderPins.at(i);
-    encoder_program_init(_pio, _smIdx, _pgmOffset, pins.first);
   }
 
   return true;
 }
 
-int _readEncoderInternal(PIO _pio, uint _smIdx) {
-  int count;
-
-  // Read 5 times to get past buffer
-  count = pio_sm_get_blocking(_pio, _smIdx);
-  count = pio_sm_get_blocking(_pio, _smIdx);
-  count = pio_sm_get_blocking(_pio, _smIdx);
-  count = pio_sm_get_blocking(_pio, _smIdx);
-  count = pio_sm_get_blocking(_pio, _smIdx);
-
+int _updateEncoders() {
+  int count = 0;
+  for(int i=0; i < 4; ++i) {
+    auto& encoder = encoders[i];
+    int next = encoder.update();
+    if(next >= 8) {
+      Serial.printf("[ENC-%u] Encoder Possible PIO RX Buffer Overrun: %d\n", i, next);
+    }
+    count += next;
+  }
   return count;
 }
 
-bool _readEncodersInternal() {
-  unsigned long _start = millis();
-  bool hasChange = false;
-  for (int i = 0; i < 4; i++) {
-    PIO _pio = _encoderPioInstance[i];
-    uint _smIdx = _encoderStateMachineIdx[i];
-
-    if (_pio != nullptr) {
-      _encoderValues[i] = _readEncoderInternal(_pio, _smIdx);
-
-      if (_encoderValues[i] != _encoderValuesLast[i]) {
-        hasChange = true;
-      }
-
-      _encoderValuesLast[i] = _encoderValues[i];
-    }
-  }
-
-  return hasChange;
-}
 
 void _initMotors() {
   // Left
@@ -245,16 +209,12 @@ uint8_t robotPeriodic() {
     _pwmShutoff();
   }
 
+  _updateEncoders();
+
   if (millis() - _lastRobotPeriodicCall < 50) return ret;
 
   // Just set the flag if we made it past the time check
   ret |= XRP_DATA_GENERAL;
-
-  // Check for encoder updates
-  bool hasEncUpdate = _readEncodersInternal();
-  if (hasEncUpdate) {
-    ret |= XRP_DATA_ENCODER;
-  }
 
   // Check for DIO (button) updates
   bool currButtonState = isUserButtonPressed();
@@ -276,6 +236,9 @@ void robotSetEnabled(bool enabled) {
   // Prevent motors from starting with arbitrary values when enabling
   if (!_robotEnabled && enabled) {
     _pwmShutoff();
+    for(auto& encoder : encoders) {
+      encoder.enable();
+    }
   }
 
   bool prevEnabledValue = _robotEnabled;
@@ -284,6 +247,9 @@ void robotSetEnabled(bool enabled) {
   if (prevEnabledValue && !enabled) {
     Serial.println("[XRP] Disabling");
     _pwmShutoff();
+    for(auto& encoder : encoders) {
+      encoder.disable();
+    }
   }
   else if (!prevEnabledValue && enabled) {
     Serial.println("[XRP] Enabling");
@@ -308,35 +274,12 @@ void configureEncoder(int deviceId, int chA, int chB) {
   }
 }
 
-// TODO this can get removed at some point since we'll ALWAYS report all values
-int readEncoder(int deviceId) {
-  if (_encoderWPILibChannelToNativeMap.count(deviceId) > 0) {
-    return _encoderValues[_encoderWPILibChannelToNativeMap[deviceId]];
-  }
-  return 0;
-}
-
 int readEncoderRaw(int rawDeviceId) {
-  return _encoderValues[rawDeviceId];
+  return encoders[rawDeviceId].getCount();
 }
 
-void resetEncoder(int deviceId) {
-  if (_encoderWPILibChannelToNativeMap.count(deviceId) > 0) {
-    int idx = _encoderWPILibChannelToNativeMap[deviceId];
-    PIO _pio = _encoderPioInstance[idx];
-    uint _smIdx = _encoderStateMachineIdx[idx];
-    pio_sm_exec(_pio, _smIdx, pio_encode_set(pio_x, 0));
-  }
-}
-
-std::vector<std::pair<int,int> > getActiveEncoderValues() {
-  std::vector<std::pair<int,int> > ret;
-  for (auto encData : _encoderWPILibChannelToNativeMap) {
-    int wpilibDevice = encData.first;
-    int nativeChannel = encData.second;
-    ret.push_back(std::make_pair(wpilibDevice, _encoderValues[nativeChannel]));
-  }
-  return ret;
+uint readEncoderPeriod(int rawDeviceId) {
+  return encoders[rawDeviceId].getPeriod();
 }
 
 void setPwmValue(int wpilibChannel, double value) {

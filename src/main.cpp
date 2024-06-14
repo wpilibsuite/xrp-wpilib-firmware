@@ -13,7 +13,8 @@
 #include "config.h"
 #include "imu.h"
 #include "robot.h"
-#include "wpilibudp.h"
+#include "wpilibudp.h" 
+#include "encoder.h"
 
 // Resource strings
 extern "C" {
@@ -111,15 +112,19 @@ void sendData() {
   // Encoders
   for (int i = 0; i < 4; i++) {
     int encoderValue = xrp::readEncoderRaw(i);
+    uint encoderPeriod = xrp::readEncoderPeriod(i);
 
     // We want to flip the encoder 0 value (left motor encoder) so that this returns
     // positive values when moving forward.
     if (i == 0) {
       encoderValue = -encoderValue;
+      encoderPeriod ^= 1; //Last bit is direction bit; Flip it.
     }
 
-    ptr += wpilibudp::writeEncoderData(i, encoderValue, buffer, ptr);
-  } // 4x 7 bytes
+    static constexpr uint divisor = xrp::Encoder::getDivisor();
+
+    ptr += wpilibudp::writeEncoderData(i, encoderValue, encoderPeriod, divisor, buffer, ptr);
+  } // 4x 15 bytes
 
   // DIO (currently just the button)
   ptr += wpilibudp::writeDIOData(0, xrp::isUserButtonPressed(), buffer, ptr);

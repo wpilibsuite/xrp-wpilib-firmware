@@ -62,10 +62,8 @@ void robotSetEnabled(bool enabled);
 
 // Encoder Related
 void configureEncoder(int deviceId, int chA, int chB);
-int readEncoder(int deviceId);
 int readEncoderRaw(int rawDeviceId);
-void resetEncoder(int deviceId);
-std::vector<std::pair<int,int> > getActiveEncoderValues();
+uint readEncoderPeriod(int rawDeviceId);
 
 // PWM Related
 void setPwmValue(int wpilibChannel, double value);
