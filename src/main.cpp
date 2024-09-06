@@ -162,6 +162,7 @@ void sendData() {
   if (xrp::rangefinderInitialized()) {
     ptr += wpilibudp::writeAnalogData(2, xrp::getRangefinderDistance5V(), buffer, ptr);
   }
+  ptr += wpilibudp::writeAnalogData(3, xrp::getVinMeasured(), buffer, ptr);
 
   // ptr should now point to 1 past the last byte
   size = ptr;

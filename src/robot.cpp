@@ -327,6 +327,13 @@ float getReflectanceRight5V() {
   return _readAnalogPinScaled(REFLECT_RIGHT_PIN) * 5.0f;
 }
 
+float getVinMeasured() {
+  //ADC reads are 3.3V max
+  //R1 = 100k, R2 = 33k, voltage divider = R2/(R1+R2)
+  //reading * Vadc_max / volt divider
+  return _readAnalogPinScaled(XRP_VIN_MEAS) * 3.3f / (33.f/(100.f+33.f));
+}
+
 void rangefinderInit() {
   pinMode(ULTRASONIC_TRIG_PIN, OUTPUT); // Trigger Pin
   digitalWrite(ULTRASONIC_TRIG_PIN, LOW);
