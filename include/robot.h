@@ -51,11 +51,14 @@
 #define XRP_DATA_AIO 0x04
 #define XRP_DATA_GENERAL 0x08
 
+#define XRP_VIN_MEAS 28
+
 namespace xrp {
 
 void robotInit();
 bool robotInitialized();
 uint8_t robotPeriodic();
+float getVinMeasured();
 
 // Robot control
 void robotSetEnabled(bool enabled);
