@@ -29,14 +29,14 @@
 .program encoder2
 .origin 0
 
-.define PUBLIC VERSION 102 
+.define PUBLIC VERSION 102
 .define PUBLIC CYCLES_PER_COUNT 16
 
 ; This PIO program monitors the encoder inputs to measure the period
 ; between encoder pulses.  At the start of a period, a 31-bit counter is
 ; initialized to its maximum value (0x7FFFFFFF) and is decremented every 16 cycles
 ; until the start of the next period.  The period start/end is determined
-; by the transition of the encoder signals from one state to another (e.g., 01 -> 11 or 01 -> 00) 
+; by the transition of the encoder signals from one state to another (e.g., 01 -> 11 or 01 -> 00)
 
 ; Every period, the total count is passed to the robot code through the RX FIFO.
 ; The upper 31 bits is the count.  It represents the number of 16-cycle intervals
@@ -117,11 +117,15 @@ send_period:
    push noblock        ;send period/direction to robot code
    out isr,2           ;restore last state to isr
    mov osr,~null       ;set all bits in osr
-   out x, 31           ;set 31 bits of x register        
+   out x, 31           ;set 31 bits of x register
 .wrap
 
 % c-sdk {
 static inline void encoder2_program_init(PIO pio, uint sm, uint offset, uint base_pin) {
+    pio_gpio_init(pio, base_pin);
+    pio_gpio_init(pio, base_pin+1);
+    pio_sm_set_consecutive_pindirs(pio, sm, base_pin, 2, false);
+
     pio_sm_config c = encoder2_program_get_default_config(offset);
 
     sm_config_set_in_pins(&c, base_pin);
