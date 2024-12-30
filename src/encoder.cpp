@@ -40,7 +40,7 @@ static PIOProgram encoderProgram(&encoder2_program);
 *     Initialize PIO program that measures encoder period.
 *
 *  Returns true on sucess.
-*  
+*
 *****************************************************************/
 
 bool Encoder::init(const int pin) {
@@ -48,7 +48,7 @@ bool Encoder::init(const int pin) {
 
   this->pin = pin;
 
-  if (!encoderProgram.prepare(&PioInstance, &StateMachineIdx, &offset)) {
+  if (!encoderProgram.prepare(&PioInstance, &StateMachineIdx, &offset, pin, 2)) {
     return false;
   }
 
@@ -60,7 +60,7 @@ bool Encoder::init(const int pin) {
 *  Encoder::enable()
 *     Enable the encoder.
 *
-*  
+*
 *****************************************************************/
 
 void Encoder::enable() {
@@ -75,7 +75,7 @@ void Encoder::enable() {
 *  Encoder::disable()
 *     Disable the encoder.
 *
-*  
+*
 *****************************************************************/
 
 void Encoder::disable() {
@@ -90,14 +90,14 @@ void Encoder::disable() {
 *  Encoder::update()
 *     Get the latest encoder period(s) from the PIO if available
 *     store the latest, and updated the tick count.
-*  
+*
 *  Returns number of samples that were retrieved.
-*  
+*
 *****************************************************************/
 
 uint Encoder::getFraction(const uint count) const {
   return count & (samples_to_average() - 1);
-} 
+}
 
 uint Encoder::getWholeNumber(const uint count) const {
   return count >> samples_to_average_shift;
@@ -147,7 +147,7 @@ int Encoder::update() {
       ++period;
       period_fraction = getFraction(period_fraction);
     }
-    period_queue[sample_index++] = raw_rx_fifo; 
+    period_queue[sample_index++] = raw_rx_fifo;
     ++sample_count;
     if(sample_index == samples_to_average())
       sample_index = 0;
@@ -191,7 +191,7 @@ void Encoder::setSamplesToAverage(const int n) {
 *     Return the period calculated by the PIO in the following format:
 *     31                           1   0
 *    |  Period in 16-cycle ticks    | dir |
-*  
+*
 *    This is the same format return by the PIO.
 *    (Note: PIO calculated value may be overidden if a relatively
 *     large amount of time has passed since the last sample from the PIO).
@@ -228,7 +228,7 @@ uint Encoder::getPeriod() {
   //If PIO value is correct, the amount of time that has passed since the last sample
   //should be less than or equal to period calculated by the PIO.
   //Otherwise, motor may have slowed way down; use the time passed for the current period length.
-  
+
   //If time since last sample is significantly longer than the last period returned by the PIO,
   //use the time passed instead.
 
