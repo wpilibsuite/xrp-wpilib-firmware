@@ -78,12 +78,12 @@ int _updateEncoders() {
 
 void _initMotors() {
   // Left
-  pinMode(XRP_LEFT_MOTOR_EN, OUTPUT);
-  pinMode(XRP_LEFT_MOTOR_PH, OUTPUT);
+  pinMode(XRP_MOTOR_L_EN, OUTPUT);
+  pinMode(XRP_MOTOR_L_PH, OUTPUT);
 
   // RIGHT
-  pinMode(XRP_RIGHT_MOTOR_EN, OUTPUT);
-  pinMode(XRP_RIGHT_MOTOR_PH, OUTPUT);
+  pinMode(XRP_MOTOR_R_EN, OUTPUT);
+  pinMode(XRP_MOTOR_R_PH, OUTPUT);
 
   // Motor 3
   pinMode(XRP_MOTOR_3_EN, OUTPUT);
@@ -94,18 +94,18 @@ void _initMotors() {
   pinMode(XRP_MOTOR_4_PH, OUTPUT);
 
   // Servos
-  // pinMode(XRP_SERVO_1_PIN, OUTPUT);
-  // pinMode(XRP_SERVO_2_PIN, OUTPUT);
+  // pinMode(XRP_SERVO_1, OUTPUT);
+  // pinMode(XRP_SERVO_2, OUTPUT);
 }
 
 bool _initServos() {
   bool success = true;
-  if(servo1.attach(XRP_SERVO_1_PIN, XRP_SERVO_MIN_PULSE_US, XRP_SERVO_MAX_PULSE_US) == -1) {
+  if(servo1.attach(XRP_SERVO_1, XRP_SERVO_MIN_PULSE_US, XRP_SERVO_MAX_PULSE_US) == -1) {
     Serial.println("[ERR] Failed to attach servo1");
     success = false;
   }
 
-  if (servo2.attach(XRP_SERVO_2_PIN, XRP_SERVO_MIN_PULSE_US, XRP_SERVO_MAX_PULSE_US) == -1) {
+  if (servo2.attach(XRP_SERVO_2, XRP_SERVO_MIN_PULSE_US, XRP_SERVO_MAX_PULSE_US) == -1) {
     Serial.println("[ERR] Failed to attach servo2");
     success = false;
   }
@@ -113,12 +113,27 @@ bool _initServos() {
   return success;
 }
 
-void _setMotorPwmValueInternal(int en, int ph, double value) {
+//void _setMotorPwmValueInternal(int en, int ph, double value) {
+  /*
   PinStatus phValue = (value < 0.0) ? LOW : HIGH;
   int enValue = (abs(value) * 255);
 
   digitalWrite(ph, phValue);
   analogWrite(en, enValue);
+  */
+void _setMotorPwmValueInternal(int in2, int in1, double value) {
+  boolean is_forward = (value >= 0.0);
+  int speed = (abs(value) * 255);
+  
+  // Direction determines which pin should be the brake
+  if(is_forward) {
+    digitalWrite(in1,LOW);
+    analogWrite(in2, speed);
+  } else {
+    digitalWrite(in2,LOW);
+    analogWrite(in1, speed);    
+  }
+
 }
 
 void _setServoPwmValueInternal(int servoIdx, double value) {
@@ -142,10 +157,10 @@ void _setPwmValueInternal(int channel, double value, bool override) {
   // Hard coded channel list
   switch (channel) {
     case WPILIB_CH_PWM_MOTOR_L:
-      _setMotorPwmValueInternal(XRP_LEFT_MOTOR_EN, XRP_LEFT_MOTOR_PH, value);
+      _setMotorPwmValueInternal(XRP_MOTOR_L_EN, XRP_MOTOR_L_PH, value);
       break;
     case WPILIB_CH_PWM_MOTOR_R:
-      _setMotorPwmValueInternal(XRP_RIGHT_MOTOR_EN, XRP_RIGHT_MOTOR_PH, value);
+      _setMotorPwmValueInternal(XRP_MOTOR_R_EN, XRP_MOTOR_R_PH, value);
       break;
     case WPILIB_CH_PWM_MOTOR_3:
       _setMotorPwmValueInternal(XRP_MOTOR_3_EN, XRP_MOTOR_3_PH, value);
@@ -174,7 +189,7 @@ void _pwmShutoff() {
 void robotInit() {
   Serial.println("[XRP] Initializing XRP Onboards");
   pinMode(XRP_BUILTIN_LED, OUTPUT);
-  pinMode(XRP_BUILTIN_BUTTON, INPUT_PULLUP);
+  pinMode(XRP_USER_BUTTON, INPUT_PULLUP);
 
   // Set up the encoder state machines
   Serial.println("[XRP] Initializing Encoders");
@@ -229,7 +244,7 @@ uint8_t robotPeriodic() {
 
 bool isUserButtonPressed() {
   // This is a pull up circuit, so when pressed, the pin is low
-  return digitalRead(XRP_BUILTIN_BUTTON) == LOW;
+  return digitalRead(XRP_USER_BUTTON) == LOW;
 }
 
 void robotSetEnabled(bool enabled) {
