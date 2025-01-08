@@ -262,8 +262,8 @@ void setup() {
   LittleFS.begin();
 
   // Set up the I2C pins
-  Wire1.setSCL(19);
-  Wire1.setSDA(18);
+  Wire1.setSCL(XRP_SCL);
+  Wire1.setSDA(XRP_SDA);
   Wire1.begin();
 
   delay(2000);

@@ -8,10 +8,6 @@
 *************************************************/
 #define __XRP_PIN_UNDEF 127
 
-// Servo pulses
-#define XRP_SERVO_MIN_PULSE_US 500
-#define XRP_SERVO_MAX_PULSE_US 2500
-
 // LED_BUILTIN is defined in the board to 
 // the correct pin 
 #define XRP_BUILTIN_LED LED_BUILTIN

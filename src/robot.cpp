@@ -1,11 +1,10 @@
 #include "robot.h"
 #include "wpilibudp.h"
 #include "encoder.h"
+#include "XRPServo.h"
 
 #include <map>
 #include <vector>
-
-#include <Servo.h>
 
 #define REFLECT_LEFT_PIN 26
 #define REFLECT_RIGHT_PIN 27
@@ -13,6 +12,8 @@
 #define ULTRASONIC_TRIG_PIN 20
 #define ULTRASONIC_ECHO_PIN 21
 #define ULTRASONIC_MAX_PULSE_WIDTH 23200
+
+#define NUM_OF_SERVOS 4
 
 namespace xrp {
 
@@ -22,10 +23,6 @@ unsigned long _lastRobotPeriodicCall = 0;
 
 // Digital IO
 bool _lastUserButtonState = false;
-
-// Servo Outputs
-Servo servo1;
-Servo servo2;
 
 // Encoders
 std::vector<std::pair<int, int> > _encoderPins = {
@@ -39,6 +36,8 @@ std::map<int, int> _encoderWPILibChannelToNativeMap;
 
 //Encoder PIO
 Encoder encoders[4];
+
+XRPServo servos[NUM_OF_SERVOS];
 
 
 // Reflectance
@@ -92,35 +91,21 @@ void _initMotors() {
   // Motor 4
   pinMode(XRP_MOTOR_4_EN, OUTPUT);
   pinMode(XRP_MOTOR_4_PH, OUTPUT);
-
-  // Servos
-  // pinMode(XRP_SERVO_1, OUTPUT);
-  // pinMode(XRP_SERVO_2, OUTPUT);
 }
 
 bool _initServos() {
   bool success = true;
-  if(servo1.attach(XRP_SERVO_1, XRP_SERVO_MIN_PULSE_US, XRP_SERVO_MAX_PULSE_US) == -1) {
-    Serial.println("[ERR] Failed to attach servo1");
-    success = false;
-  }
 
-  if (servo2.attach(XRP_SERVO_2, XRP_SERVO_MIN_PULSE_US, XRP_SERVO_MAX_PULSE_US) == -1) {
-    Serial.println("[ERR] Failed to attach servo2");
-    success = false;
-  }
+  success = servos[0].init(XRP_SERVO_1);
+  success = servos[1].init(XRP_SERVO_2);
+  success = servos[2].init(XRP_SERVO_3);
+  success = servos[3].init(XRP_SERVO_4);
 
   return success;
 }
 
-//void _setMotorPwmValueInternal(int en, int ph, double value) {
-  /*
-  PinStatus phValue = (value < 0.0) ? LOW : HIGH;
-  int enValue = (abs(value) * 255);
+#ifdef PICO_RP2350
 
-  digitalWrite(ph, phValue);
-  analogWrite(en, enValue);
-  */
 void _setMotorPwmValueInternal(int in2, int in1, double value) {
   boolean is_forward = (value >= 0.0);
   int speed = (abs(value) * 255);
@@ -133,18 +118,24 @@ void _setMotorPwmValueInternal(int in2, int in1, double value) {
     digitalWrite(in2,LOW);
     analogWrite(in1, speed);    
   }
+}
+#else
 
+void _setMotorPwmValueInternal(int en, int ph, double value) {
+  
+  PinStatus phValue = (value < 0.0) ? LOW : HIGH;
+  int enValue = (abs(value) * 255);
+
+  digitalWrite(ph, phValue);
+  analogWrite(en, enValue);
 }
 
-void _setServoPwmValueInternal(int servoIdx, double value) {
-  int val = ((value + 1.0) / 2.0) * 180;
+#endif
 
-  if (servoIdx == 0 && servo1.attached()) {
-    servo1.write(val);
-  }
-  else if (servoIdx == 1 && servo2.attached()) {
-    servo2.write(val);
-  }
+
+
+void _setServoPwmValueInternal(int servoIdx, double value) {
+  servos[servoIdx].setValue(value);
 }
 
 void _setPwmValueInternal(int channel, double value, bool override) {
@@ -174,6 +165,14 @@ void _setPwmValueInternal(int channel, double value, bool override) {
     case WPILIB_CH_PWM_SERVO_2:
       _setServoPwmValueInternal(1, value);
       break;
+    /*
+    case WPILIB_CH_PWM_SERVO_3:
+      _setServoPwmValueInternal(3, value);
+      break;
+    case WPILIB_CH_PWM_SERVO_4:
+      _setServoPwmValueInternal(4, value);
+      break;
+    */
   }
 }
 
