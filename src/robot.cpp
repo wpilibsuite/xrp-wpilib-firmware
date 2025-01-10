@@ -13,8 +13,6 @@
 #define ULTRASONIC_ECHO_PIN 21
 #define ULTRASONIC_MAX_PULSE_WIDTH 23200
 
-#define NUM_OF_SERVOS 4
-
 namespace xrp {
 
 bool _robotInitialized = false;
@@ -96,10 +94,11 @@ void _initMotors() {
 bool _initServos() {
   bool success = true;
 
-  success = servos[0].init(XRP_SERVO_1);
-  success = servos[1].init(XRP_SERVO_2);
-  success = servos[2].init(XRP_SERVO_3);
-  success = servos[3].init(XRP_SERVO_4);
+  int xrp_pin[4] = {XRP_SERVO_1, XRP_SERVO_2, XRP_SERVO_3, XRP_SERVO_4};
+
+  for (int i=0;i<NUM_OF_SERVOS;i++) {
+    success = servos[i].init(xrp_pin[i]);
+  }
 
   return success;
 }

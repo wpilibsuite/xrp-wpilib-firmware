@@ -61,6 +61,8 @@
 #define XRP_SERVO_3     24
 #define XRP_SERVO_4     6
 
+#define NUM_OF_SERVOS 4
+
 // Encoders
 #define XRP_ENC_L_A     36
 #define XRP_ENC_L_B     37
@@ -98,6 +100,8 @@
 #define XRP_SERVO_2    17
 #define XRP_SERVO_3    __XRP_PIN_UNDEF
 #define XRP_SERVO_4    __XRP_PIN_UNDEF
+
+#define NUM_OF_SERVOS 2
 
 // I2C
 #define XRP_SCL 19
