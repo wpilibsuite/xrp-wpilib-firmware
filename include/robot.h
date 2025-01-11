@@ -8,6 +8,15 @@
 *************************************************/
 #define __XRP_PIN_UNDEF 127
 
+
+// TODO: Do these need to be different by board?
+#define REFLECT_LEFT_PIN 26
+#define REFLECT_RIGHT_PIN 27
+
+#define ULTRASONIC_TRIG_PIN 20
+#define ULTRASONIC_ECHO_PIN 21
+#define ULTRASONIC_MAX_PULSE_WIDTH 23200
+
 // LED_BUILTIN is defined in the board to 
 // the correct pin 
 #define XRP_BUILTIN_LED LED_BUILTIN
@@ -102,6 +111,16 @@
 #define XRP_SERVO_4    __XRP_PIN_UNDEF
 
 #define NUM_OF_SERVOS 2
+
+// Encoders
+#define XRP_ENC_L_A     4
+#define XRP_ENC_L_B     5
+#define XRP_ENC_R_A     12
+#define XRP_ENC_R_B     13
+#define XRP_ENC_3_A     0
+#define XRP_ENC_3_B     1
+#define XRP_ENC_4_A     8
+#define XRP_ENC_4_B     9
 
 // I2C
 #define XRP_SCL 19

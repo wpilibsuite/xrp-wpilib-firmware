@@ -6,13 +6,6 @@
 #include <map>
 #include <vector>
 
-#define REFLECT_LEFT_PIN 26
-#define REFLECT_RIGHT_PIN 27
-
-#define ULTRASONIC_TRIG_PIN 20
-#define ULTRASONIC_ECHO_PIN 21
-#define ULTRASONIC_MAX_PULSE_WIDTH 23200
-
 namespace xrp {
 
 bool _robotInitialized = false;
@@ -24,10 +17,10 @@ bool _lastUserButtonState = false;
 
 // Encoders
 std::vector<std::pair<int, int> > _encoderPins = {
-  {4, 5},
-  {12, 13},
-  {0, 1},
-  {8, 9}
+  {XRP_ENC_L_A, XRP_ENC_L_B},
+  {XRP_ENC_R_A, XRP_ENC_R_B},
+  {XRP_ENC_3_A, XRP_ENC_3_B},
+  {XRP_ENC_4_A, XRP_ENC_4_B}
 };
 
 std::map<int, int> _encoderWPILibChannelToNativeMap;
@@ -131,9 +124,16 @@ void _setMotorPwmValueInternal(int en, int ph, double value) {
 
 #endif
 
-
+std::map<int, double> servoMap;
 
 void _setServoPwmValueInternal(int servoIdx, double value) {
+
+  // Uncomment for debugging
+  if( servoMap.find(servoIdx) == servoMap.end() || servoMap[servoIdx] != value) {
+    Serial.printf("Servo[%d] = %lf\n", servoIdx, value);
+    servoMap[servoIdx] = value;
+  }
+  
   servos[servoIdx].setValue(value);
 }
 
