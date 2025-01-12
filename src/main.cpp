@@ -252,7 +252,7 @@ void updateLoopTime(unsigned long loopStart) {
 
 
 void setup() {
-  // Generate the default SSID using the flash ID
+    // Generate the default SSID using the flash ID
   pico_unique_board_id_t id_out;
   pico_get_unique_board_id(&id_out);
   sprintf(chipID, "%02x%02x-%02x%02x", id_out.id[4], id_out.id[5], id_out.id[6], id_out.id[7]);
@@ -270,6 +270,10 @@ void setup() {
 
   // Read Config
   config = loadConfiguration(DEFAULT_SSID);
+
+  // MUST BE BEFORE imuCalibrate (has digitalWrites) and configureNetwork
+  xrp::robotInit();
+
 
   // Initialize IMU
   Serial.println("[IMU] Initializing IMU");
@@ -306,7 +310,6 @@ void setup() {
   Serial.printf("[NET] SSID: %s\n", WiFi.SSID().c_str());
   Serial.printf("[NET] IP: %s\n", WiFi.localIP().toString().c_str());
 
-  xrp::robotInit();
 
   // NOTE: For now, we'll force init the reflectance sensor
   // TODO Enable this via configuration
@@ -325,7 +328,7 @@ void setup() {
 }
 
 void loop() {
-  unsigned long loopStartTime = micros();
+    unsigned long loopStartTime = micros();
 
   webServer.handleClient();
 
@@ -339,7 +342,7 @@ void loop() {
   }
 
   xrp::imuPeriodic();
-  xrp::rangefinderPollForData();
+    xrp::rangefinderPollForData();
 
   // Disable the robot when the UDP watchdog timesout
   // Also reset the max sequence number so we can handle reconnects

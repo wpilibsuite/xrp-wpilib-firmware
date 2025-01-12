@@ -12,5 +12,6 @@ class XRPServo {
         void setValue(double value);
     private:
         int _pin;
+        int _value;
         Servo _servo;
 };
