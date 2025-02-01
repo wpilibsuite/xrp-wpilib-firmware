@@ -6,6 +6,8 @@
 #include <map>
 #include <vector>
 
+#define MIN_UPDATE_TIME_MS 50
+
 namespace xrp {
 
 bool _robotInitialized = false;
@@ -23,11 +25,19 @@ std::vector<std::pair<int, int> > _encoderPins = {
   {XRP_ENC_4_A, XRP_ENC_4_B}
 };
 
+std::vector<int> _servoPins = {
+  XRP_SERVO_1,
+  XRP_SERVO_2,
+  XRP_SERVO_3,
+  XRP_SERVO_4
+};
+
 std::map<int, int> _encoderWPILibChannelToNativeMap;
 
 //Encoder PIO
-Encoder encoders[4];
+Encoder encoders[NUM_OF_ENCODERS];
 
+// Servo array
 XRPServo servos[NUM_OF_SERVOS];
 
 
@@ -40,7 +50,7 @@ float _rangefinderDistMetres = 0.0f;
 const float RANGEFINDER_MAX_DIST_M = 4.0f;
 
 bool _initEncoders() {
-  for(int i=0; i < 4; ++i) {
+  for(int i=0; i < NUM_OF_ENCODERS; ++i) {
     int pin = _encoderPins[i].first;
 
     if(!encoders[i].init(pin)) {
@@ -54,7 +64,7 @@ bool _initEncoders() {
 
 int _updateEncoders() {
   int count = 0;
-  for(int i=0; i < 4; ++i) {
+  for(int i=0; i < NUM_OF_ENCODERS; ++i) {
     auto& encoder = encoders[i];
     int next = encoder.update();
     if(next >= 8) {
@@ -87,10 +97,8 @@ void _initMotors() {
 bool _initServos() {
   bool success = true;
 
-  int xrp_pin[4] = {XRP_SERVO_1, XRP_SERVO_2, XRP_SERVO_3, XRP_SERVO_4};
-
   for (int i=0;i<NUM_OF_SERVOS;i++) {
-    success = servos[i].init(xrp_pin[i]);
+    success = servos[i].init(_servoPins[i]);
   }
 
   return success;
@@ -104,13 +112,14 @@ void _setMotorPwmValueInternal(int in2, int in1, double value) {
   
   // Direction determines which pin should be the brake
   if(is_forward) {
-    digitalWrite(in1,LOW);
-    analogWrite(in2, speed);
-  } else {
     digitalWrite(in2,LOW);
-    analogWrite(in1, speed);    
+    analogWrite(in1, speed);
+  } else {
+    digitalWrite(in1,LOW);
+    analogWrite(in2, speed);    
   }
 }
+
 #else
 
 void _setMotorPwmValueInternal(int en, int ph, double value) {
@@ -176,12 +185,17 @@ void _setPwmValueInternal(int channel, double value, bool override) {
 }
 
 void _pwmShutoff() {
-  _setPwmValueInternal(0, 0, true);
-  _setPwmValueInternal(1, 0, true);
-  _setPwmValueInternal(2, 0, true);
-  _setPwmValueInternal(3, 0, true);
-  _setPwmValueInternal(4, 0, true);
-  _setPwmValueInternal(5, 0, true);
+  _setPwmValueInternal(WPILIB_CH_PWM_MOTOR_L, 0, true);
+  _setPwmValueInternal(WPILIB_CH_PWM_MOTOR_R, 0, true);
+  _setPwmValueInternal(WPILIB_CH_PWM_MOTOR_3, 0, true);
+  _setPwmValueInternal(WPILIB_CH_PWM_MOTOR_4, 0, true);
+  _setPwmValueInternal(WPILIB_CH_PWM_SERVO_1, 0, true);
+  _setPwmValueInternal(WPILIB_CH_PWM_SERVO_2, 0, true);
+  /*
+  _setPwmValueInternal(WPILIB_CH_PWM_SERVO_3, 0, true);
+  _setPwmValueInternal(WPILIB_CH_PWM_SERVO_4, 0, true);
+  */
+  
 }
 
 void robotInit() {
@@ -224,7 +238,8 @@ uint8_t robotPeriodic() {
 
   _updateEncoders();
 
-  if (millis() - _lastRobotPeriodicCall < 50) return ret;
+  // Only check if user button pressed at the less frequent interval
+  if (millis() - _lastRobotPeriodicCall < MIN_UPDATE_TIME_MS) return ret;
 
   // Just set the flag if we made it past the time check
   ret |= XRP_DATA_GENERAL;

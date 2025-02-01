@@ -25,11 +25,9 @@ const unsigned char* GetResource_xrp_js(size_t* len);
 const unsigned char* GetResource_VERSION(size_t* len);
 }
 
-char chipID[20];
 char DEFAULT_SSID[32];
 
 XRPConfiguration config;
-NetworkMode netConfigResult;
 
 // HTTP server
 WebServer webServer(5000);
@@ -53,14 +51,22 @@ unsigned long _loopTimeMeasurementCount = 0;
 uint16_t seq = 0;
 
 // Generate the status text file
-void writeStatusToDisk() {
+void writeStatusToDisk(NetworkMode netMode) {
   File f = LittleFS.open("/status.txt", "w");
+
+  // Generate the default SSID using the flash ID
+  pico_unique_board_id_t id_out;
+  pico_get_unique_board_id(&id_out);
+  char chipID[20];
+  sprintf(chipID, "%02x%02x-%02x%02x", id_out.id[4], id_out.id[5], id_out.id[6], id_out.id[7]);
+  sprintf(DEFAULT_SSID, "XRP-%s", chipID);
+
   size_t len;
   std::string versionString{reinterpret_cast<const char*>(GetResource_VERSION(&len)), len};
   f.printf("Version: %s\n", versionString.c_str());
   f.printf("Chip ID: %s\n", chipID);
-  f.printf("WiFi Mode: %s\n", netConfigResult == NetworkMode::AP ? "AP" : "STA");
-  if (netConfigResult == NetworkMode::AP) {
+  f.printf("WiFi Mode: %s\n", netMode == NetworkMode::AP ? "AP" : "STA");
+  if (netMode == NetworkMode::AP) {
     f.printf("AP SSID: %s\n", config.networkConfig.defaultAPName.c_str());
     f.printf("AP PASS: %s\n", config.networkConfig.defaultAPPassword.c_str());
   }
@@ -250,13 +256,41 @@ void updateLoopTime(unsigned long loopStart) {
   _avgLoopTimeUs = (totalTime + loopTime) / _loopTimeMeasurementCount;
 }
 
+void setupNetwork(XRPConfiguration configuration) {
+
+  // Busy-loop if there's no WiFi hardware
+  if (WiFi.status() == WL_NO_MODULE) {
+    Serial.println("[NET] No WiFi Module");
+    while (true);
+  }
+
+  // Set up WiFi AP
+  WiFi.setHostname(DEFAULT_SSID);
+
+  // Use configuration information
+  NetworkMode netConfigResult = configureNetwork(configuration);
+  Serial.printf("[NET] Actual WiFi Mode: %s\n", netConfigResult == NetworkMode::AP ? "AP" : "STA");
+
+  // Set up HTTP server routes
+  Serial.println("[NET] Setting up Config webserver");
+  setupWebServerRoutes();
+
+  webServer.begin();
+  Serial.println("[NET] Config webserver listening on *:5000");
+
+  // Set up UDP
+  udp.begin(3540);
+  Serial.println("[NET] UDP socket listening on *:3540");
+
+  // Write current status file
+  writeStatusToDisk(netConfigResult);
+
+  Serial.println("[NET] Network Ready");
+  Serial.printf("[NET] SSID: %s\n", WiFi.SSID().c_str());
+  Serial.printf("[NET] IP: %s\n", WiFi.localIP().toString().c_str());
+}
 
 void setup() {
-    // Generate the default SSID using the flash ID
-  pico_unique_board_id_t id_out;
-  pico_get_unique_board_id(&id_out);
-  sprintf(chipID, "%02x%02x-%02x%02x", id_out.id[4], id_out.id[5], id_out.id[6], id_out.id[7]);
-  sprintf(DEFAULT_SSID, "XRP-%s", chipID);
 
   Serial.begin(115200);
   LittleFS.begin();
@@ -274,7 +308,6 @@ void setup() {
   // MUST BE BEFORE imuCalibrate (has digitalWrites) and configureNetwork
   xrp::robotInit();
 
-
   // Initialize IMU
   Serial.println("[IMU] Initializing IMU");
   xrp::imuInit(IMU_I2C_ADDR, &Wire1);
@@ -282,34 +315,8 @@ void setup() {
   Serial.println("[IMU] Beginning IMU calibration");
   xrp::imuCalibrate(5000);
 
-  // Busy-loop if there's no WiFi hardware
-  if (WiFi.status() == WL_NO_MODULE) {
-    Serial.println("[NET] No WiFi Module");
-    while (true);
-  }
-
-  // Set up WiFi AP
-  WiFi.setHostname(DEFAULT_SSID);
-
-  // Use configuration information
-  netConfigResult = configureNetwork(config);
-  Serial.printf("[NET] Actual WiFi Mode: %s\n", netConfigResult == NetworkMode::AP ? "AP" : "STA");
-
-  // Set up HTTP server routes
-  Serial.println("[NET] Setting up Config webserver");
-  setupWebServerRoutes();
-
-  webServer.begin();
-  Serial.println("[NET] Config webserver listening on *:5000");
-
-  // Set up UDP
-  udp.begin(3540);
-  Serial.println("[NET] UDP socket listening on *:3540");
-
-  Serial.println("[NET] Network Ready");
-  Serial.printf("[NET] SSID: %s\n", WiFi.SSID().c_str());
-  Serial.printf("[NET] IP: %s\n", WiFi.localIP().toString().c_str());
-
+  // Setup Network
+  setupNetwork(config);
 
   // NOTE: For now, we'll force init the reflectance sensor
   // TODO Enable this via configuration
@@ -322,8 +329,6 @@ void setup() {
   _lastMessageStatusPrint = millis();
   _baselineUsedHeap = rp2040.getUsedHeap();
 
-  // Write current status file
-  writeStatusToDisk();
   singleFileDrive.begin("status.txt", "XRP-Status.txt");
 }
 

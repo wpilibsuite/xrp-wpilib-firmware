@@ -1,3 +1,5 @@
+/* XRPServo is a class used to abstract away the firmware interaction for the servos */
+
 #pragma once
 
 #include <Servo.h>
@@ -10,7 +12,9 @@ class XRPServo {
     public:
         boolean init(int pin);
         void setValue(double value);
+        boolean isValid();
     private:
+        boolean isValid(int pin);
         int _pin;
         int _value;
         Servo _servo;
