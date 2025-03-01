@@ -292,14 +292,18 @@ void setupNetwork(XRPConfiguration configuration) {
 
 void setup() {
 
+  // Start Serial port for logging
   Serial.begin(115200);
+
+  // Start LittleFS for read/write from disk
   LittleFS.begin();
 
   // Set up the I2C pins
-  Wire1.setSCL(XRP_SCL);
-  Wire1.setSDA(XRP_SDA);
+  Wire1.setSCL(I2C_SCL_1);
+  Wire1.setSDA(I2C_SDA_1);
   Wire1.begin();
 
+  // Give a few seconds if attaching a Serail port listener
   delay(2000);
 
   // Read Config
@@ -329,14 +333,18 @@ void setup() {
   _lastMessageStatusPrint = millis();
   _baselineUsedHeap = rp2040.getUsedHeap();
 
+  // Emulates a FAT-formatted USB stick 
+  // to allow txt file to be read if USB connected
   singleFileDrive.begin("status.txt", "XRP-Status.txt");
 }
 
 void loop() {
-    unsigned long loopStartTime = micros();
+  unsigned long loopStartTime = micros();
 
+  // Check for (configuration) requests from webServer
   webServer.handleClient();
 
+  // Check for data via udp (from client code)
   int packetSize = udp.parsePacket();
   if (packetSize) {
     updateRemoteInfo();
@@ -347,7 +355,7 @@ void loop() {
   }
 
   xrp::imuPeriodic();
-    xrp::rangefinderPollForData();
+  xrp::rangefinderPollForData();
 
   // Disable the robot when the UDP watchdog timesout
   // Also reset the max sequence number so we can handle reconnects
@@ -358,7 +366,7 @@ void loop() {
   }
 
   if (xrp::robotPeriodic()) {
-    // Package up and send all the data
+    // Package up and send all the data to client udp
     sendData();
   }
 

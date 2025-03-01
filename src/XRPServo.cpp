@@ -10,7 +10,7 @@ boolean XRPServo::init(int pin) {
 
     // Only attach to a servo if it is valid.
     if(!isValid(pin)) {
-      Serial.printf("Pin [%d] unavailable on this boaord", pin);
+      Serial.printf("Pin [%d] unavailable on this board", pin);
       Serial.println("\n");
       return true;
     }
@@ -27,8 +27,6 @@ void XRPServo::setValue(double value) {
   int val = ((value + 1.0) / 2.0) * 180;
 
   if(val != _value) {
-    Serial.printf("Servo[%d] %d\n", _pin, _value);
-    Serial.println("\n");
     _value = val;
   }
 

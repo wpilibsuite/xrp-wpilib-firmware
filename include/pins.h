@@ -92,6 +92,48 @@
 #define XRP_USER_BUTTON 2
 */
 
+// Motors
+#define MOTOR_L_IN_1 34
+#define MOTOR_L_IN_2 35 
+#define MOTOR_R_IN_1 32
+#define MOTOR_R_IN_2 33
+#define MOTOR_3_IN_1 20
+#define MOTOR_3_IN_2 21
+#define MOTOR_4_IN_1 10
+#define MOTOR_4_IN_2 11
+
+// Encoders
+#define MOTOR_L_ENCODER_A     30
+#define MOTOR_L_ENCODER_B     31
+#define MOTOR_R_ENCODER_A     24
+#define MOTOR_R_ENCODER_B     25
+#define MOTOR_3_ENCODER_A     22
+#define MOTOR_3_ENCODER_B     23
+#define MOTOR_4_ENCODER_A     2
+#define MOTOR_4_ENCODER_B     3
+
+// SERVOS
+#define SERVO_1    6
+#define SERVO_2    9
+#define SERVO_3    7
+#define SERVO_4    8
+
+// Line Reflectors
+#define LINE_L 44
+#define LINE_R 45
+
+// Range Finder
+#define DISTANCE_TRIGGER 0
+#define DISTANCE_ECHO    1
+
+// I2C IMU
+#define I2C_SCL_1 39
+#define I2C_SDA_1 38
+
+// User Button
+#define BOARD_USER_BUTTON 36
+
+/*
 // Motor and Servo Outputs
 #define XRP_MOTOR_L_EN  35
 #define XRP_MOTOR_L_PH  34
@@ -130,12 +172,56 @@
 
 // User Button
 #define XRP_USER_BUTTON 36
+*/
 
 #else
 // Beta
 #define PIN_LAYOUT_IDENT "Beta"
 
 // XRP Pin Functions
+
+// Motors
+#define MOTOR_L_IN_1 6
+#define MOTOR_L_IN_2 7 
+#define MOTOR_R_IN_1 14
+#define MOTOR_R_IN_2 15
+#define MOTOR_3_IN_1 2
+#define MOTOR_3_IN_2 3
+#define MOTOR_4_IN_1 10
+#define MOTOR_4_IN_2 11
+
+// Encoders
+#define MOTOR_L_ENCODER_A     4
+#define MOTOR_L_ENCODER_B     5
+#define MOTOR_R_ENCODER_A     12
+#define MOTOR_R_ENCODER_B     13
+#define MOTOR_3_ENCODER_A     0
+#define MOTOR_3_ENCODER_B     1
+#define MOTOR_4_ENCODER_A     8
+#define MOTOR_4_ENCODER_B     9
+
+// SERVOS
+#define SERVO_1    16
+#define SERVO_2    17
+#define SERVO_3    __XRP_PIN_UNDEF
+#define SERVO_4    __XRP_PIN_UNDEF
+
+// Line Reflectors
+#define LINE_L 26
+#define LINE_R 27
+
+// Range Finder
+#define DISTANCE_TRIGGER 20
+#define DISTANCE_ECHO    21
+
+// I2C IMU
+#define I2C_SCL_1 19
+#define I2C_SDA_1 18
+
+// User Button
+#define BOARD_USER_BUTTON 22
+
+/*
 #define XRP_MOTOR_L_EN 7
 #define XRP_MOTOR_L_PH 6
 #define XRP_MOTOR_R_EN 15
@@ -174,5 +260,6 @@
 
 // User Button
 #define XRP_USER_BUTTON 22
+*/
 
 #endif
