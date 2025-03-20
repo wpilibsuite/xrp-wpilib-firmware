@@ -149,7 +149,7 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
   // Check if there's a default AP provided
   if (networkInfo.containsKey("defaultAP")) {
     auto defaultAPInfo = networkInfo["defaultAP"];
-    if (defaultAPInfo.containsKey("ssid")) {
+    if (defaultAPInfo.containsKey("ssid") && defaultAPInfo["ssid"].as<std::string>().length() != 0) {
       config.networkConfig.defaultAPName = defaultAPInfo["ssid"].as<std::string>();
     }
     else {
