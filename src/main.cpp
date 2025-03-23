@@ -25,6 +25,7 @@ const unsigned char* GetResource_xrp_js(size_t* len);
 const unsigned char* GetResource_VERSION(size_t* len);
 }
 
+char chipID[20];
 char DEFAULT_SSID[32];
 
 XRPConfiguration config;
@@ -283,6 +284,11 @@ NetworkMode setupNetwork(XRPConfiguration configuration) {
 }
 
 void setup() {
+  // Generate the default SSID using the flash ID
+  pico_unique_board_id_t id_out;
+  pico_get_unique_board_id(&id_out);
+  sprintf(chipID, "%02x%02x-%02x%02x", id_out.id[4], id_out.id[5], id_out.id[6], id_out.id[7]);
+  sprintf(DEFAULT_SSID, "XRP-%s", chipID);
 
   // Start Serial port for logging
   Serial.begin(115200);
