@@ -1,18 +1,12 @@
 #include "robot.h"
 #include "wpilibudp.h"
 #include "encoder.h"
+#include "XRPServo.h"
 
 #include <map>
 #include <vector>
 
-#include <Servo.h>
-
-#define REFLECT_LEFT_PIN 26
-#define REFLECT_RIGHT_PIN 27
-
-#define ULTRASONIC_TRIG_PIN 20
-#define ULTRASONIC_ECHO_PIN 21
-#define ULTRASONIC_MAX_PULSE_WIDTH 23200
+#define MIN_UPDATE_TIME_MS 50
 
 namespace xrp {
 
@@ -23,22 +17,28 @@ unsigned long _lastRobotPeriodicCall = 0;
 // Digital IO
 bool _lastUserButtonState = false;
 
-// Servo Outputs
-Servo servo1;
-Servo servo2;
-
 // Encoders
 std::vector<std::pair<int, int> > _encoderPins = {
-  {4, 5},
-  {12, 13},
-  {0, 1},
-  {8, 9}
+  {MOTOR_L_ENCODER_A, MOTOR_L_ENCODER_B},
+  {MOTOR_R_ENCODER_A, MOTOR_R_ENCODER_B},
+  {MOTOR_3_ENCODER_A, MOTOR_3_ENCODER_B},
+  {MOTOR_4_ENCODER_A, MOTOR_4_ENCODER_B}
+};
+
+std::vector<int> _servoPins = {
+  SERVO_1,
+  SERVO_2,
+  SERVO_3,
+  SERVO_4
 };
 
 std::map<int, int> _encoderWPILibChannelToNativeMap;
 
 //Encoder PIO
-Encoder encoders[4];
+Encoder encoders[NUM_OF_ENCODERS];
+
+// Servo array
+XRPServo servos[NUM_OF_SERVOS];
 
 
 // Reflectance
@@ -50,7 +50,7 @@ float _rangefinderDistMetres = 0.0f;
 const float RANGEFINDER_MAX_DIST_M = 4.0f;
 
 bool _initEncoders() {
-  for(int i=0; i < 4; ++i) {
+  for(int i=0; i < NUM_OF_ENCODERS; ++i) {
     int pin = _encoderPins[i].first;
 
     if(!encoders[i].init(pin)) {
@@ -64,7 +64,7 @@ bool _initEncoders() {
 
 int _updateEncoders() {
   int count = 0;
-  for(int i=0; i < 4; ++i) {
+  for(int i=0; i < NUM_OF_ENCODERS; ++i) {
     auto& encoder = encoders[i];
     int next = encoder.update();
     if(next >= 8) {
@@ -78,42 +78,52 @@ int _updateEncoders() {
 
 void _initMotors() {
   // Left
-  pinMode(XRP_LEFT_MOTOR_EN, OUTPUT);
-  pinMode(XRP_LEFT_MOTOR_PH, OUTPUT);
+  pinMode(MOTOR_L_IN_1, OUTPUT);
+  pinMode(MOTOR_L_IN_2, OUTPUT);
 
   // RIGHT
-  pinMode(XRP_RIGHT_MOTOR_EN, OUTPUT);
-  pinMode(XRP_RIGHT_MOTOR_PH, OUTPUT);
+  pinMode(MOTOR_R_IN_1, OUTPUT);
+  pinMode(MOTOR_R_IN_2, OUTPUT);
 
   // Motor 3
-  pinMode(XRP_MOTOR_3_EN, OUTPUT);
-  pinMode(XRP_MOTOR_3_PH, OUTPUT);
+  pinMode(MOTOR_3_IN_1, OUTPUT);
+  pinMode(MOTOR_3_IN_2, OUTPUT);
 
   // Motor 4
-  pinMode(XRP_MOTOR_4_EN, OUTPUT);
-  pinMode(XRP_MOTOR_4_PH, OUTPUT);
-
-  // Servos
-  // pinMode(XRP_SERVO_1_PIN, OUTPUT);
-  // pinMode(XRP_SERVO_2_PIN, OUTPUT);
+  pinMode(MOTOR_4_IN_1, OUTPUT);
+  pinMode(MOTOR_4_IN_2, OUTPUT);
 }
 
 bool _initServos() {
   bool success = true;
-  if(servo1.attach(XRP_SERVO_1_PIN, XRP_SERVO_MIN_PULSE_US, XRP_SERVO_MAX_PULSE_US) == -1) {
-    Serial.println("[ERR] Failed to attach servo1");
-    success = false;
-  }
 
-  if (servo2.attach(XRP_SERVO_2_PIN, XRP_SERVO_MIN_PULSE_US, XRP_SERVO_MAX_PULSE_US) == -1) {
-    Serial.println("[ERR] Failed to attach servo2");
-    success = false;
+  for (int i=0;i<NUM_OF_SERVOS;i++) {
+    success = servos[i].init(_servoPins[i]);
   }
 
   return success;
 }
 
+#ifdef PICO_RP2350
+
+void _setMotorPwmValueInternal(int in2, int in1, double value) {
+  boolean is_forward = (value >= 0.0);
+  int speed = (abs(value) * 255);
+  
+  // Direction determines which pin should be the brake
+  if(is_forward) {
+    digitalWrite(in2,LOW);
+    analogWrite(in1, speed);
+  } else {
+    digitalWrite(in1,LOW);
+    analogWrite(in2, speed);    
+  }
+}
+
+#else
+
 void _setMotorPwmValueInternal(int en, int ph, double value) {
+  
   PinStatus phValue = (value < 0.0) ? LOW : HIGH;
   int enValue = (abs(value) * 255);
 
@@ -121,16 +131,7 @@ void _setMotorPwmValueInternal(int en, int ph, double value) {
   analogWrite(en, enValue);
 }
 
-void _setServoPwmValueInternal(int servoIdx, double value) {
-  int val = ((value + 1.0) / 2.0) * 180;
-
-  if (servoIdx == 0 && servo1.attached()) {
-    servo1.write(val);
-  }
-  else if (servoIdx == 1 && servo2.attached()) {
-    servo2.write(val);
-  }
-}
+#endif
 
 void _setPwmValueInternal(int channel, double value, bool override) {
   if (!_robotEnabled && !override) return;
@@ -142,39 +143,47 @@ void _setPwmValueInternal(int channel, double value, bool override) {
   // Hard coded channel list
   switch (channel) {
     case WPILIB_CH_PWM_MOTOR_L:
-      _setMotorPwmValueInternal(XRP_LEFT_MOTOR_EN, XRP_LEFT_MOTOR_PH, value);
+      _setMotorPwmValueInternal(MOTOR_L_IN_2, MOTOR_L_IN_1, value);
       break;
     case WPILIB_CH_PWM_MOTOR_R:
-      _setMotorPwmValueInternal(XRP_RIGHT_MOTOR_EN, XRP_RIGHT_MOTOR_PH, value);
+      _setMotorPwmValueInternal(MOTOR_R_IN_2, MOTOR_R_IN_1, value);
       break;
     case WPILIB_CH_PWM_MOTOR_3:
-      _setMotorPwmValueInternal(XRP_MOTOR_3_EN, XRP_MOTOR_3_PH, value);
+      _setMotorPwmValueInternal(MOTOR_3_IN_2, MOTOR_3_IN_1, value);
       break;
     case WPILIB_CH_PWM_MOTOR_4:
-      _setMotorPwmValueInternal(XRP_MOTOR_4_EN, XRP_MOTOR_4_PH, value);
+      _setMotorPwmValueInternal(MOTOR_4_IN_2, MOTOR_4_IN_1, value);
       break;
     case WPILIB_CH_PWM_SERVO_1:
-      _setServoPwmValueInternal(0, value);
+      servos[0].setValue(value);
       break;
     case WPILIB_CH_PWM_SERVO_2:
-      _setServoPwmValueInternal(1, value);
+      servos[1].setValue(value);
+      break;
+    case WPILIB_CH_PWM_SERVO_3:
+      servos[2].setValue(value);
+      break;
+    case WPILIB_CH_PWM_SERVO_4:
+      servos[3].setValue(value);
       break;
   }
 }
 
 void _pwmShutoff() {
-  _setPwmValueInternal(0, 0, true);
-  _setPwmValueInternal(1, 0, true);
-  _setPwmValueInternal(2, 0, true);
-  _setPwmValueInternal(3, 0, true);
-  _setPwmValueInternal(4, 0, true);
-  _setPwmValueInternal(5, 0, true);
+  _setPwmValueInternal(WPILIB_CH_PWM_MOTOR_L, 0, true);
+  _setPwmValueInternal(WPILIB_CH_PWM_MOTOR_R, 0, true);
+  _setPwmValueInternal(WPILIB_CH_PWM_MOTOR_3, 0, true);
+  _setPwmValueInternal(WPILIB_CH_PWM_MOTOR_4, 0, true);
+  _setPwmValueInternal(WPILIB_CH_PWM_SERVO_1, 0, true);
+  _setPwmValueInternal(WPILIB_CH_PWM_SERVO_2, 0, true);
+  _setPwmValueInternal(WPILIB_CH_PWM_SERVO_3, 0, true);
+  _setPwmValueInternal(WPILIB_CH_PWM_SERVO_4, 0, true);
 }
 
 void robotInit() {
   Serial.println("[XRP] Initializing XRP Onboards");
   pinMode(XRP_BUILTIN_LED, OUTPUT);
-  pinMode(XRP_BUILTIN_BUTTON, INPUT_PULLUP);
+  pinMode(BOARD_USER_BUTTON, INPUT_PULLUP);
 
   // Set up the encoder state machines
   Serial.println("[XRP] Initializing Encoders");
@@ -211,7 +220,8 @@ uint8_t robotPeriodic() {
 
   _updateEncoders();
 
-  if (millis() - _lastRobotPeriodicCall < 50) return ret;
+  // Only check if user button pressed at the less frequent interval
+  if (millis() - _lastRobotPeriodicCall < MIN_UPDATE_TIME_MS) return ret;
 
   // Just set the flag if we made it past the time check
   ret |= XRP_DATA_GENERAL;
@@ -229,7 +239,7 @@ uint8_t robotPeriodic() {
 
 bool isUserButtonPressed() {
   // This is a pull up circuit, so when pressed, the pin is low
-  return digitalRead(XRP_BUILTIN_BUTTON) == LOW;
+  return digitalRead(BOARD_USER_BUTTON) == LOW;
 }
 
 void robotSetEnabled(bool enabled) {
@@ -316,7 +326,7 @@ float getReflectanceLeft5V() {
     return -1.0f;
   }
 
-  return _readAnalogPinScaled(REFLECT_LEFT_PIN) * 5.0f;
+  return _readAnalogPinScaled(LINE_L) * 5.0f;
 }
 
 float getReflectanceRight5V() {
@@ -324,14 +334,14 @@ float getReflectanceRight5V() {
     return -1.0f;
   }
 
-  return _readAnalogPinScaled(REFLECT_RIGHT_PIN) * 5.0f;
+  return _readAnalogPinScaled(LINE_R) * 5.0f;
 }
 
 void rangefinderInit() {
-  pinMode(ULTRASONIC_TRIG_PIN, OUTPUT); // Trigger Pin
-  digitalWrite(ULTRASONIC_TRIG_PIN, LOW);
+  pinMode(DISTANCE_TRIGGER, OUTPUT); // Trigger Pin
+  digitalWrite(DISTANCE_TRIGGER, LOW);
 
-  pinMode(ULTRASONIC_ECHO_PIN, INPUT); // Echo pin
+  pinMode(DISTANCE_ECHO, INPUT); // Echo pin
   _rangefinderInitialized = true;
 }
 
@@ -358,19 +368,19 @@ void rangefinderPeriodic() {
   float distMetres = RANGEFINDER_MAX_DIST_M;
 
   // Stabilize the sensor
-  digitalWrite(ULTRASONIC_TRIG_PIN, LOW);
+  digitalWrite(DISTANCE_TRIGGER, LOW);
   delayMicroseconds(5);
-  digitalWrite(ULTRASONIC_TRIG_PIN, HIGH);
+  digitalWrite(DISTANCE_TRIGGER, HIGH);
 
   // Send a 10us pulse
   delayMicroseconds(10);
-  digitalWrite(ULTRASONIC_TRIG_PIN, LOW);
+  digitalWrite(DISTANCE_TRIGGER, LOW);
 
   // wait for pulse on the echo pin
-  while (digitalRead(ULTRASONIC_ECHO_PIN) == 0);
+  while (digitalRead(DISTANCE_ECHO) == 0);
 
   t1 = micros();
-  while (digitalRead(ULTRASONIC_ECHO_PIN) == 1) {
+  while (digitalRead(DISTANCE_ECHO) == 1) {
     if (micros() - t1 > ULTRASONIC_MAX_PULSE_WIDTH) {
       break;
     }
