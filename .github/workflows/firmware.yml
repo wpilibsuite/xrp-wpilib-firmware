@@ -28,7 +28,7 @@ jobs:
     - name: Build
       run: pio run
     - name: Rename firmware beta
-      run: mv .pio/build/xrp_beta/firmware.uf2 .pio/build/xrp_beta/xrp-wpilib-firmware-${{ env.FIRMWARE_VERSION }}-${{ env.FIRMWARE_COMMIT_SHA }}.uf2
+      run: mv .pio/build/xrp_beta/firmware.uf2 .pio/build/xrp_beta/xrp-wpilib-firmware-beta-${{ env.FIRMWARE_VERSION }}-${{ env.FIRMWARE_COMMIT_SHA }}.uf2
     - uses: actions/upload-artifact@v4
       with:
         name: xrp-wpilib-firmware-beta-${{ env.FIRMWARE_VERSION }}-${{ env.FIRMWARE_COMMIT_SHA }}
