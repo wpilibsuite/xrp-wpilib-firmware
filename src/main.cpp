@@ -25,7 +25,6 @@ const unsigned char* GetResource_xrp_js(size_t* len);
 const unsigned char* GetResource_VERSION(size_t* len);
 }
 
-char chipID[20];
 char DEFAULT_SSID[32];
 
 XRPConfiguration config;
