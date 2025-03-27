@@ -51,15 +51,8 @@ unsigned long _loopTimeMeasurementCount = 0;
 uint16_t seq = 0;
 
 // Generate the status text file
-void writeStatusToDisk(NetworkMode netMode) {
+void writeStatusToDisk(NetworkMode netMode, char *chipID) {
   File f = LittleFS.open("/status.txt", "w");
-
-  // Generate the default SSID using the flash ID
-  pico_unique_board_id_t id_out;
-  pico_get_unique_board_id(&id_out);
-  char chipID[20];
-  sprintf(chipID, "%02x%02x-%02x%02x", id_out.id[4], id_out.id[5], id_out.id[6], id_out.id[7]);
-  sprintf(DEFAULT_SSID, "XRP-%s", chipID);
 
   size_t len;
   std::string versionString{reinterpret_cast<const char*>(GetResource_VERSION(&len)), len};
@@ -256,7 +249,7 @@ void updateLoopTime(unsigned long loopStart) {
   _avgLoopTimeUs = (totalTime + loopTime) / _loopTimeMeasurementCount;
 }
 
-void setupNetwork(XRPConfiguration configuration) {
+NetworkMode setupNetwork(XRPConfiguration configuration) {
 
   // Busy-loop if there's no WiFi hardware
   if (WiFi.status() == WL_NO_MODULE) {
@@ -282,16 +275,14 @@ void setupNetwork(XRPConfiguration configuration) {
   udp.begin(3540);
   Serial.println("[NET] UDP socket listening on *:3540");
 
-  // Write current status file
-  writeStatusToDisk(netConfigResult);
-
   Serial.println("[NET] Network Ready");
   Serial.printf("[NET] SSID: %s\n", WiFi.SSID().c_str());
   Serial.printf("[NET] IP: %s\n", WiFi.localIP().toString().c_str());
+
+  return netConfigResult;
 }
 
 void setup() {
-
   // Start Serial port for logging
   Serial.begin(115200);
 
@@ -305,6 +296,13 @@ void setup() {
 
   // Give a few seconds if attaching a Serail port listener
   delay(2000);
+
+  // Generate the default SSID using the flash ID
+  pico_unique_board_id_t id_out;
+  pico_get_unique_board_id(&id_out);
+  char chipID[20];
+  sprintf(chipID, "%02x%02x-%02x%02x", id_out.id[4], id_out.id[5], id_out.id[6], id_out.id[7]);
+  sprintf(DEFAULT_SSID, "XRP-%s", chipID);
 
   // Read Config
   config = loadConfiguration(DEFAULT_SSID);
@@ -320,7 +318,10 @@ void setup() {
   xrp::imuCalibrate(5000);
 
   // Setup Network
-  setupNetwork(config);
+  NetworkMode netMode = setupNetwork(config);
+
+  // Write current status file
+  writeStatusToDisk(netMode,chipID);
 
   // NOTE: For now, we'll force init the reflectance sensor
   // TODO Enable this via configuration
