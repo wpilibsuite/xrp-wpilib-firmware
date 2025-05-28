@@ -78,7 +78,7 @@ std::string XRPConfiguration::toJsonString() {
   network["mode"] = networkConfig.mode == NetworkMode::AP ? "AP" : "STA";
 
   for (auto netInfo : networkConfig.networkList) {
-    JsonObject networkObj;
+    JsonDocument networkObj;
     networkObj["ssid"] = netInfo.first;
     networkObj["password"] = netInfo.second;
     prefNetworks.add(networkObj);
@@ -101,7 +101,6 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
   File f = LittleFS.open("/config.json", "r");
   if (!f) {
     Serial.println("[CONFIG] No config file found. Creating default");
-    
     config = generateDefaultConfig(defaultAPName);
     writeConfigToDisk(config);
     return config;
