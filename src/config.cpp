@@ -63,24 +63,25 @@ XRPConfiguration generateDefaultConfig(std::string defaultAPName) {
 }
 
 std::string XRPConfiguration::toJsonString() {
-  StaticJsonDocument<512> config;
+  JsonDocument config;
 
   config["configVersion"] = XRP_CONFIG_VERSION;
 
   // Network
-  JsonObject network = config.createNestedObject("network");
-  JsonObject defaultAP = network.createNestedObject("defaultAP");
+  JsonObject network = config["network"].to<JsonObject>();
+  JsonObject defaultAP = network["defaultAP"].to<JsonObject>();
 
   defaultAP["ssid"] = networkConfig.defaultAPName;
   defaultAP["password"] = networkConfig.defaultAPPassword;
 
-  JsonArray prefNetworks = network.createNestedArray("networkList");
+  JsonArray prefNetworks = network["networkList"].to<JsonArray>();
   network["mode"] = networkConfig.mode == NetworkMode::AP ? "AP" : "STA";
 
   for (auto netInfo : networkConfig.networkList) {
-    JsonObject networkObj = prefNetworks.createNestedObject();
+    JsonDocument networkObj;
     networkObj["ssid"] = netInfo.first;
     networkObj["password"] = netInfo.second;
+    prefNetworks.add(networkObj);
   }
 
   std::string ret;
@@ -100,14 +101,13 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
   File f = LittleFS.open("/config.json", "r");
   if (!f) {
     Serial.println("[CONFIG] No config file found. Creating default");
-    
     config = generateDefaultConfig(defaultAPName);
     writeConfigToDisk(config);
     return config;
   }
 
   // Load and verify
-  StaticJsonDocument<512> configJson;
+  JsonDocument configJson;
   auto jsonErr = deserializeJson(configJson, f);
   f.close();
 
@@ -132,7 +132,7 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
   }
 
   // Network Section
-  if (!configJson.containsKey("network")) {
+  if (!configJson["network"].is<JsonVariant>()) {
     Serial.print("[CONFIG] No network information specified. Using defaults");
     config = generateDefaultConfig(defaultAPName);
 
@@ -147,9 +147,9 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
   bool shouldWrite = false;
 
   // Check if there's a default AP provided
-  if (networkInfo.containsKey("defaultAP")) {
+  if (networkInfo["defaultAP"].is<JsonVariant>()) {
     auto defaultAPInfo = networkInfo["defaultAP"];
-    if (defaultAPInfo.containsKey("ssid") && defaultAPInfo["ssid"].as<std::string>().length() != 0) {
+    if (defaultAPInfo["ssid"].is<JsonString>() && defaultAPInfo["ssid"].as<std::string>().length() != 0) {
       config.networkConfig.defaultAPName = defaultAPInfo["ssid"].as<std::string>();
     }
     else {
@@ -158,7 +158,7 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
       shouldWrite = true;
     }
 
-    if (defaultAPInfo.containsKey("password")) {
+    if (defaultAPInfo["password"].is<JsonString>()) {
       config.networkConfig.defaultAPPassword = defaultAPInfo["password"].as<std::string>();
     }
     else {
@@ -169,18 +169,18 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
   }
 
   // Load in the preferred network list
-  if (networkInfo.containsKey("networkList")) {
+  if (networkInfo["networkList"].is<JsonVariant>()) {
     auto networkList = networkInfo["networkList"];
     JsonArray networks = networkList.as<JsonArray>();
     for (auto v : networks) {
-      if (v.containsKey("ssid") && v.containsKey("password")) {
+      if (v["ssid"].is<JsonString>() && v["password"].is<JsonString>()) {
         config.networkConfig.networkList.push_back(std::make_pair<std::string, std::string>(v["ssid"], v["password"]));
       }
     }
   }
 
   // Check if we're in STA mode. If so, we'll need at least 1 network in the list
-  if (networkInfo.containsKey("mode")) {
+  if (networkInfo["mode"].is<JsonString>()) {
     if (networkInfo["mode"] == "STA") {
       if (config.networkConfig.networkList.size() > 0) {
         config.networkConfig.mode = NetworkMode::STA;
