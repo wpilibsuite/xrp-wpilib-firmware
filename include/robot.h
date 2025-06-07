@@ -4,11 +4,14 @@
 #include <vector>
 #include <pins.h>
 
+#define XRP_VIN_MEAS 28
+
 namespace xrp {
 
 void robotInit();
 bool robotInitialized();
 uint8_t robotPeriodic();
+float getVinMeasured();
 
 // Robot control
 void robotSetEnabled(bool enabled);
