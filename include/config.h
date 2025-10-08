@@ -13,6 +13,7 @@ class XRPNetConfig {
     NetworkMode mode { NetworkMode::NOT_CONFIGURED };
     std::string defaultAPName {""};
     std::string defaultAPPassword {""};
+    int defaultAPChannel = 0;
     std::vector< std::pair<std::string, std::string> > networkList;
 };
 

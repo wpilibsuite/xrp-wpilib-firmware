@@ -30,9 +30,17 @@ NetworkMode configureNetwork(XRPConfiguration config) {
 
   if (shouldUseAP) {
     Serial.println("[NET] Attempting to start in AP mode");
-    bool result = WiFi.softAP(
-          config.networkConfig.defaultAPName.c_str(),
-          config.networkConfig.defaultAPPassword.c_str());
+    bool result = true;
+    if(config.networkConfig.defaultAPChannel == 0) {
+      result = WiFi.softAP(
+            config.networkConfig.defaultAPName.c_str(),
+            config.networkConfig.defaultAPPassword.c_str());
+    } else {
+      result = WiFi.softAP(
+            config.networkConfig.defaultAPName.c_str(),
+            config.networkConfig.defaultAPPassword.c_str(),
+            config.networkConfig.defaultAPChannel);
+    }
     
     if (result) {
       Serial.println("[NET] AP Ready");
@@ -73,6 +81,9 @@ std::string XRPConfiguration::toJsonString() {
 
   defaultAP["ssid"] = networkConfig.defaultAPName;
   defaultAP["password"] = networkConfig.defaultAPPassword;
+  if(networkConfig.defaultAPChannel != 0) {
+    defaultAP["channel"] = networkConfig.defaultAPChannel;
+  }
 
   JsonArray prefNetworks = network["networkList"].to<JsonArray>();
   network["mode"] = networkConfig.mode == NetworkMode::AP ? "AP" : "STA";
@@ -116,7 +127,7 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
     Serial.println(jsonErr.f_str());
     Serial.println("[CONFIG] Using default");
     config = generateDefaultConfig(defaultAPName);
-
+ 
     // Write the file
     writeConfigToDisk(config);
 
@@ -166,6 +177,14 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
       config.networkConfig.defaultAPPassword = tempDefault.networkConfig.defaultAPPassword;
       shouldWrite = true;
     }
+
+    if(defaultAPInfo["channel"].is<JsonInteger>()) {
+      config.networkConfig.defaultAPChannel = defaultAPInfo["channel"].as<int>();
+    } else {
+      Serial.println("CONFIG] Default AP Channel not set. Will use channel 1 as defacto.");
+      // Don't write to disk here because channel is optional
+    }
+
   }
 
   // Load in the preferred network list

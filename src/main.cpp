@@ -69,6 +69,9 @@ void writeStatusToDisk(NetworkMode netMode, char *chipID) {
   if (netMode == NetworkMode::AP) {
     f.printf("AP SSID: %s\n", config.networkConfig.defaultAPName.c_str());
     f.printf("AP PASS: %s\n", config.networkConfig.defaultAPPassword.c_str());
+    if(config.networkConfig.defaultAPChannel != 0) {
+      f.printf("AP CHAN: %d\n", config.networkConfig.defaultAPChannel);
+    }
   }
   else {
     f.printf("Connected to %s\n", WiFi.SSID().c_str());
