@@ -49,6 +49,10 @@ bool _rangefinderInitialized = false;
 float _rangefinderDistMetres = 0.0f;
 const float RANGEFINDER_MAX_DIST_M = 4.0f;
 
+// Board Voltage Measure
+bool _inputVoltageMeasureInitialized = false;
+
+
 bool _initEncoders() {
   for(int i=0; i < NUM_OF_ENCODERS; ++i) {
     int pin = _encoderPins[i].first;
@@ -402,5 +406,25 @@ void rangefinderPeriodic() {
   memcpy(&bits, &distMetres, sizeof(bits));
   bool result = rp2040.fifo.push_nb(bits);
 }
+
+void inputVoltageMeasureInit() {
+  analogReadResolution(12);
+  _inputVoltageMeasureInitialized = true;
+}
+
+bool inputVoltageMeasureInitialized(){
+  return _inputVoltageMeasureInitialized;
+}
+
+float getInputVoltageMeasure() {
+  if (!_inputVoltageMeasureInitialized) {
+    return -1.0f;
+  }
+
+  float inputvoltage = _readAnalogPinScaled(BOARD_VIN_MEASURE) * 3.3f; // 3.3 is the refrence voltage for the board
+  inputvoltage *= 4; // The *4 is because of the resistor setup on the Vin measure pin
+  return inputvoltage;
+}
+
 
 } // namespace xrp
