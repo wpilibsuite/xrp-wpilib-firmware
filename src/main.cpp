@@ -172,6 +172,11 @@ void sendData() {
     ptr += wpilibudp::writeAnalogData(2, xrp::getRangefinderDistance5V(), buffer, ptr);
   }
 
+  // Write the input voltage of the board to Analog input 3
+  if (xrp::inputVoltageMeasureInitialized()){
+    ptr += wpilibudp::writeAnalogData(3, xrp::getInputVoltageMeasure(), buffer, ptr);
+  }
+
   // ptr should now point to 1 past the last byte
   size = ptr;
 
@@ -340,6 +345,10 @@ void setup() {
   // NOTE: For now we'll force init the rangefinder
   // TODO enable this via configuration
   xrp::rangefinderInit();
+
+  // NOTE: For now we'll force init the input volage measure
+  // TODO enable this via configuration
+  xrp::inputVoltageMeasureInit();
 
   _lastMessageStatusPrint = millis();
   _baselineUsedHeap = rp2040.getUsedHeap();

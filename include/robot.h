@@ -38,4 +38,9 @@ float getRangefinderDistance5V();
 void rangefinderPollForData();
 void rangefinderPeriodic();
 
+// Power
+void inputVoltageMeasureInit();
+bool inputVoltageMeasureInitialized();
+float getInputVoltageMeasure();
+
 } // namespace xrp
