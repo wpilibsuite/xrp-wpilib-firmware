@@ -1,3 +1,5 @@
+#include "debug_log.h"
+
 #include <Arduino.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
@@ -14,22 +16,22 @@ NetworkMode configureNetwork(XRPConfiguration config) {
     shouldUseAP = true;
   }
   else if (config.networkConfig.mode == NetworkMode::STA) {
-    Serial.println("[NET] Attempting to start in STA Mode");
-    Serial.println("[NET] Trying the following networks:");
+    debug_log::println("[NET] Attempting to start in STA Mode");
+    debug_log::println("[NET] Trying the following networks:");
     for (auto netInfo : config.networkConfig.networkList) {
-      Serial.printf("* %s\n", netInfo.first.c_str());
+      debug_log::log("* %s\n", netInfo.first.c_str());
       multi.addAP(netInfo.first.c_str(), netInfo.second.c_str());
     }
 
     // Attempt to connect
     if (multi.run() != WL_CONNECTED) {
-      Serial.println("[NET] Failed to connect to any network on list. Falling back to AP");
+      debug_log::println("[NET] Failed to connect to any network on list. Falling back to AP");
       shouldUseAP = true;
     }
   }
 
   if (shouldUseAP) {
-    Serial.println("[NET] Attempting to start in AP mode");
+    debug_log::println("[NET] Attempting to start in AP mode");
     bool result = true;
     if(config.networkConfig.defaultAPChannel == 0) {
       result = WiFi.softAP(
@@ -43,15 +45,15 @@ NetworkMode configureNetwork(XRPConfiguration config) {
     }
     
     if (result) {
-      Serial.println("[NET] AP Ready");
+      debug_log::println("[NET] AP Ready");
     }
     else {
-      Serial.println("[NET] AP Set up Failed");
+      debug_log::println("[NET] AP Set up Failed");
     }
   }
 
-  Serial.println("[NET] ### NETWORK CONFIGURED ###");
-  Serial.printf("[NET] SSID: %s\n", WiFi.SSID().c_str());
+  debug_log::println("[NET] ### NETWORK CONFIGURED ###");
+  debug_log::log("[NET] SSID: %s\n", WiFi.SSID().c_str());
 
   return shouldUseAP ? NetworkMode::AP : NetworkMode::STA;
 }
@@ -111,7 +113,7 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
 
   File f = LittleFS.open("/config.json", "r");
   if (!f) {
-    Serial.println("[CONFIG] No config file found. Creating default");
+    debug_log::println("[CONFIG] No config file found. Creating default");
     config = generateDefaultConfig(defaultAPName);
     writeConfigToDisk(config);
     return config;
@@ -123,9 +125,9 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
   f.close();
 
   if (jsonErr) {
-    Serial.print("[CONFIG] Deserialization failed: ");
-    Serial.println(jsonErr.f_str());
-    Serial.println("[CONFIG] Using default");
+    debug_log::print("[CONFIG] Deserialization failed: ");
+    debug_log::println(jsonErr.c_str());
+    debug_log::println("[CONFIG] Using default");
     config = generateDefaultConfig(defaultAPName);
  
     // Write the file
@@ -135,7 +137,7 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
   }
 
   if (configJson["configVersion"] != XRP_CONFIG_VERSION) {
-    Serial.print("[CONFIG] Configuration version mismatch. Using default");
+    debug_log::print("[CONFIG] Configuration version mismatch. Using default");
     config = generateDefaultConfig(defaultAPName);
 
     writeConfigToDisk(config);
@@ -144,7 +146,7 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
 
   // Network Section
   if (!configJson["network"].is<JsonVariant>()) {
-    Serial.print("[CONFIG] No network information specified. Using defaults");
+    debug_log::print("[CONFIG] No network information specified. Using defaults");
     config = generateDefaultConfig(defaultAPName);
 
     writeConfigToDisk(config);
@@ -164,7 +166,7 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
       config.networkConfig.defaultAPName = defaultAPInfo["ssid"].as<std::string>();
     }
     else {
-      Serial.println("[CONFIG] Default AP SSID missing. Using default");
+      debug_log::println("[CONFIG] Default AP SSID missing. Using default");
       config.networkConfig.defaultAPName = tempDefault.networkConfig.defaultAPName;
       shouldWrite = true;
     }
@@ -173,7 +175,7 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
       config.networkConfig.defaultAPPassword = defaultAPInfo["password"].as<std::string>();
     }
     else {
-      Serial.println("[CONFIG] Default AP Password missing. Using default");
+      debug_log::println("[CONFIG] Default AP Password missing. Using default");
       config.networkConfig.defaultAPPassword = tempDefault.networkConfig.defaultAPPassword;
       shouldWrite = true;
     }
@@ -181,7 +183,7 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
     if(defaultAPInfo["channel"].is<JsonInteger>()) {
       config.networkConfig.defaultAPChannel = defaultAPInfo["channel"].as<int>();
     } else {
-      Serial.println("CONFIG] Default AP Channel not set. Will use channel 1 as defacto.");
+      debug_log::println("CONFIG] Default AP Channel not set. Will use channel 1 as defacto.");
       // Don't write to disk here because channel is optional
     }
 
@@ -205,7 +207,7 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
         config.networkConfig.mode = NetworkMode::STA;
       }
       else {
-        Serial.println("[CONFIG] Network mode set to STA but no provided networks. Resettign to AP");
+        debug_log::println("[CONFIG] Network mode set to STA but no provided networks. Resettign to AP");
         config.networkConfig.mode = NetworkMode::AP;
         shouldWrite = true;
       }
@@ -215,7 +217,7 @@ XRPConfiguration loadConfiguration(std::string defaultAPName) {
     }
   }
   else {
-    Serial.println("[CONFIG] Network Mode missing. Defaulting to AP");
+    debug_log::println("[CONFIG] Network Mode missing. Defaulting to AP");
     config.networkConfig.mode = NetworkMode::AP;
     shouldWrite = true;
   }

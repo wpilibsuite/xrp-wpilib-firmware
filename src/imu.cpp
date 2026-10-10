@@ -1,3 +1,5 @@
+#include "debug_log.h"
+
 #include "imu.h"
 
 #include <MadgwickAHRS.h>
@@ -51,10 +53,10 @@ void imuSetEnabled(bool enabled) {
   _imuEnabled = enabled;
 
   if (prevEnabledValue && !enabled) {
-    Serial.println("[IMU] Disabled");
+    debug_log::println("[IMU] Disabled");
   }
   else if (!prevEnabledValue && enabled) {
-    Serial.println("[IMU] Enabled");
+    debug_log::println("[IMU] Enabled");
   }
 }
 
@@ -64,50 +66,50 @@ bool imuIsEnabled() {
 
 void imuInit(uint8_t addr, TwoWire *theWire) {
   if (!_lsm6.begin_I2C(addr, theWire, 0)) {
-    Serial.println("Failed to find LSM6DSOX");
+    debug_log::println("Failed to find LSM6DSOX");
     _imuReady = false;
   }
   else {
     _imuReady = true;
-    Serial.println("--- IMU ---");
-    Serial.println("LSM6DSOX detected");
+    debug_log::println("--- IMU ---");
+    debug_log::println("LSM6DSOX detected");
     
-    Serial.println("Setting update rate to 208Hz");
+    debug_log::println("Setting update rate to 208Hz");
     _lsm6.setGyroDataRate(LSM6DS_RATE_208_HZ);
     _lsm6.setAccelDataRate(LSM6DS_RATE_208_HZ);
 
-    Serial.print("Accel Range: ");
+    debug_log::print("Accel Range: ");
     switch (_lsm6.getAccelRange()) {
       case LSM6DS_ACCEL_RANGE_2_G:
-        Serial.println("+-2G");
+        debug_log::println("+-2G");
         break;
       case LSM6DS_ACCEL_RANGE_4_G:
-        Serial.println("+-4G");
+        debug_log::println("+-4G");
         break;
       case LSM6DS_ACCEL_RANGE_8_G:
-        Serial.println("+-8G");
+        debug_log::println("+-8G");
         break;
       case LSM6DS_ACCEL_RANGE_16_G:
-        Serial.println("+-16G");
+        debug_log::println("+-16G");
         break;
     }
 
-    Serial.print("Gyro Range: ");
+    debug_log::print("Gyro Range: ");
     switch(_lsm6.getGyroRange()) {
       case LSM6DS_GYRO_RANGE_125_DPS:
-        Serial.println("125 DPS");
+        debug_log::println("125 DPS");
         break;
       case LSM6DS_GYRO_RANGE_250_DPS:
-        Serial.println("250 DPS");
+        debug_log::println("250 DPS");
         break;
       case LSM6DS_GYRO_RANGE_500_DPS:
-        Serial.println("500 DPS");
+        debug_log::println("500 DPS");
         break;
       case LSM6DS_GYRO_RANGE_1000_DPS:
-        Serial.println("1000 DPS");
+        debug_log::println("1000 DPS");
         break;
       case LSM6DS_GYRO_RANGE_2000_DPS:
-        Serial.println("2000 DPS");
+        debug_log::println("2000 DPS");
         break;
       case ISM330DHCX_GYRO_RANGE_4000_DPS:
         break;
@@ -122,7 +124,7 @@ void imuCalibrate(unsigned long calibrationTimeMs) {
     calibrationTimeMs = IMU_DEFAULT_CALIBRATION_TIME_MS;
   }
 
-  Serial.printf("[IMU] Beginning calibration. Running for %u ms\n", calibrationTimeMs);
+  debug_log::log("[IMU] Beginning calibration. Running for %lu ms\n", calibrationTimeMs);
   
   float gyroAvgValues[3] = {0, 0, 0};
   float accelAvgValues[3] = {0, 0, 0};
@@ -176,14 +178,14 @@ void imuCalibrate(unsigned long calibrationTimeMs) {
   // Remove 1G from the vertical axis (assumed to be Z)
   _accelOffsetsG[2] -= 1.0;
 
-  Serial.printf("[IMU] Gyro Offsets(dps): X(%f) Y(%f) Z(%f), Accel Offsets(g): X(%f) Y(%f) Z(%f)\n",
+  debug_log::log("[IMU] Gyro Offsets(dps): X(%f) Y(%f) Z(%f), Accel Offsets(g): X(%f) Y(%f) Z(%f)\n",
       _gyroOffsetsDPS[0],
       _gyroOffsetsDPS[1],
       _gyroOffsetsDPS[2],
       _accelOffsetsG[0],
       _accelOffsetsG[1],
       _accelOffsetsG[2]);
-  Serial.println("[IMU] Calibration Complete");
+  debug_log::println("[IMU] Calibration Complete");
 
   digitalWrite(LED_BUILTIN, LOW);
 }
@@ -194,7 +196,7 @@ int _imuLoopCount = 0;
 void imuPeriodic() {
   // Initialize the filter if this is the first time we are running through the periodic
   if (!_filterStarted) {
-    Serial.printf("[IMU] Starting Madgwick filter at %u hz\n", IMU_MADGWICK_LOOP_FREQ_HZ);
+    debug_log::log("[IMU] Starting Madgwick filter at %u hz\n", IMU_MADGWICK_LOOP_FREQ_HZ);
     _microsPerReading = 1000000 / IMU_MADGWICK_LOOP_FREQ_HZ;
     _microsPrevious = micros();
     _ahrsFilter.begin(IMU_MADGWICK_LOOP_FREQ_HZ);
@@ -230,7 +232,7 @@ void imuPeriodic() {
     _imuLoopCount++;
 
     if (_imuLoopCount > 100) {
-      Serial.printf("[IMU] Avg AHRS Update Time: %u us\n", _imuLoopTime / _imuLoopCount);
+      debug_log::log("[IMU] Avg AHRS Update Time: %lu us\n", _imuLoopTime / _imuLoopCount);
       _imuLoopCount = 0;
       _imuLoopTime = 0;
     }
@@ -407,10 +409,10 @@ void imuResetYaw() {
 }
 
 void gyroReset() {
-  Serial.println("[IMU] Resetting Gyro");
   imuResetRoll();
   imuResetPitch();
   imuResetYaw();
+  debug_log::println("[IMU] Resetting Gyro");
 }
 
 } // namespace xrp

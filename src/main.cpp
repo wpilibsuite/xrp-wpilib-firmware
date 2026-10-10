@@ -1,3 +1,5 @@
+#include "debug_log.h"
+
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <LittleFS.h>
@@ -89,7 +91,7 @@ void writeStatusToDisk(NetworkMode netMode, char *chipID) {
 void updateRemoteInfo() {
   // Update the remote address if needed
   if (!udpRemoteAddr.isSet()) {
-    Serial.printf("[NET] Received first UDP connect from %s:%d\n", udp.remoteIP().toString().c_str(), udp.remotePort());
+    debug_log::log("[NET] Received first UDP connect from %s:%d\n", udp.remoteIP().toString().c_str(), udp.remotePort());
     udpRemoteAddr = udp.remoteIP();
     udpRemotePort = udp.remotePort();
   }
@@ -211,7 +213,7 @@ void setupWebServerRoutes() {
   webServer.on("/getconfig", []() {
     File f = LittleFS.open("/config.json", "r");
     if (webServer.streamFile(f, "text/json") != f.size()) {
-      Serial.println("[WEB] Sent less data than expected for /getconfig");
+      debug_log::println("[WEB] Sent less data than expected for /getconfig");
     }
     f.close();
   });
@@ -236,7 +238,7 @@ void setupWebServerRoutes() {
     File f = LittleFS.open("/config.json", "w");
     f.print(postBody);
     f.close();
-    Serial.println("[CONFIG] Configuration Updated Remotely");
+    debug_log::println("[CONFIG] Configuration Updated Remotely");
 
     webServer.send(200, "text/plain", "OK");
   });
@@ -246,7 +248,14 @@ void checkPrintStatus() {
   if (millis() - _lastMessageStatusPrint > 5000) {
 
     int usedHeap = rp2040.getUsedHeap();
-    Serial.printf("t(ms):%u h:%d msg:%u lt(us):%u\n", millis(), usedHeap, _wsMessageCount, _avgLoopTimeUs);
+    const auto logCounts = debug_log::counters();
+    debug_log::log("t(ms):%lu h:%d msg:%lu lt(us):%lu "
+                   "log_drop:%lu log_supp:%lu log_trunc:%lu\n",
+                   static_cast<unsigned long>(millis()), usedHeap,
+                   _wsMessageCount, _avgLoopTimeUs,
+                   static_cast<unsigned long>(logCounts.dropped),
+                   static_cast<unsigned long>(logCounts.suppressed),
+                   static_cast<unsigned long>(logCounts.truncated));
     _lastMessageStatusPrint = millis();
   }
 }
@@ -263,7 +272,7 @@ NetworkMode setupNetwork(XRPConfiguration configuration) {
 
   // Busy-loop if there's no WiFi hardware
   if (WiFi.status() == WL_NO_MODULE) {
-    Serial.println("[NET] No WiFi Module");
+    debug_log::println("[NET] No WiFi Module");
     while (true);
   }
 
@@ -272,22 +281,22 @@ NetworkMode setupNetwork(XRPConfiguration configuration) {
 
   // Use configuration information
   NetworkMode netConfigResult = configureNetwork(configuration);
-  Serial.printf("[NET] Actual WiFi Mode: %s\n", netConfigResult == NetworkMode::AP ? "AP" : "STA");
+  debug_log::log("[NET] Actual WiFi Mode: %s\n", netConfigResult == NetworkMode::AP ? "AP" : "STA");
 
   // Set up HTTP server routes
-  Serial.println("[NET] Setting up Config webserver");
+  debug_log::println("[NET] Setting up Config webserver");
   setupWebServerRoutes();
 
   webServer.begin();
-  Serial.println("[NET] Config webserver listening on *:5000");
+  debug_log::println("[NET] Config webserver listening on *:5000");
 
   // Set up UDP
   udp.begin(3540);
-  Serial.println("[NET] UDP socket listening on *:3540");
+  debug_log::println("[NET] UDP socket listening on *:3540");
 
-  Serial.println("[NET] Network Ready");
-  Serial.printf("[NET] SSID: %s\n", WiFi.SSID().c_str());
-  Serial.printf("[NET] IP: %s\n", WiFi.localIP().toString().c_str());
+  debug_log::println("[NET] Network Ready");
+  debug_log::log("[NET] SSID: %s\n", WiFi.SSID().c_str());
+  debug_log::log("[NET] IP: %s\n", WiFi.localIP().toString().c_str());
 
   return netConfigResult;
 }
@@ -321,10 +330,10 @@ void setup() {
   xrp::robotInit();
 
   // Initialize IMU
-  Serial.println("[IMU] Initializing IMU");
+  debug_log::println("[IMU] Initializing IMU");
   xrp::imuInit(IMU_I2C_ADDR, &MYWIRE);
 
-  Serial.println("[IMU] Beginning IMU calibration");
+  debug_log::println("[IMU] Beginning IMU calibration");
   xrp::imuCalibrate(5000);
 
   // Setup Network
@@ -381,8 +390,9 @@ void loop() {
     sendData();
   }
 
-  updateLoopTime(loopStartTime);
   checkPrintStatus();
+  debug_log::drain();
+  updateLoopTime(loopStartTime);
 }
 
 void loop1() {

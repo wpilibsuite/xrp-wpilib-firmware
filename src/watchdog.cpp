@@ -1,3 +1,5 @@
+#include "debug_log.h"
+
 #include "watchdog.h"
 
 #include <Arduino.h>
@@ -5,37 +7,23 @@
 namespace xrp {
 
 void Watchdog::feed() {
-  if (!_lastSatisfiedState) {
-    // transitioning from T -> F
-    Serial.printf("[WD:%s] F -> T\n", _name.c_str());
-  }
+  bool wasSatisfied = _lastSatisfiedState;
   _lastSatisfiedState = true;
   _lastFeedTime = millis();
+  if (!wasSatisfied) {
+    debug_log::log("[WD:%s] F -> T\n", _name.c_str());
+  }
 }
 
 bool Watchdog::satisfied() {
-  if (_wdTimeout == 0) {
-    if (!_lastSatisfiedState) {
-      // Transitioned from false to true
-      Serial.printf("[WD:%s] F -> T\n", _name.c_str());
-    }
-    _lastSatisfiedState = true;
-    return true;
+  bool wasSatisfied = _lastSatisfiedState;
+  _lastSatisfiedState =
+      _wdTimeout == 0 || millis() - _lastFeedTime < _wdTimeout;
+  if (wasSatisfied != _lastSatisfiedState) {
+    debug_log::log("[WD:%s] %s\n", _name.c_str(),
+                   _lastSatisfiedState ? "F -> T" : "T -> F");
   }
-
-  if (millis() - _lastFeedTime < _wdTimeout) {
-    if (!_lastSatisfiedState) {
-      Serial.printf("[WD:%s] F -> T\n", _name.c_str());
-    }
-    _lastSatisfiedState = true;
-    return true;
-  }
-
-  if (_lastSatisfiedState) {
-    Serial.printf("[WD:%s] T -> F\n", _name.c_str());
-  }
-  _lastSatisfiedState = false;
-  return false;
+  return _lastSatisfiedState;
 }
 
 void Watchdog::setTimeout(unsigned long timeout) {

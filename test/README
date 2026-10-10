@@ -1,11 +1,21 @@
+Run host regressions from the repository root:
 
-This directory is intended for PlatformIO Test Runner and project tests.
+    python3 test/run_native.py
 
-Unit Testing is a software testing method by which individual units of
-source code, sets of one or more MCU program modules together with associated
-control data, usage procedures, and operating procedures, are tested to
-determine whether they are fit for use. Unit testing finds problems early
-in the development cycle.
+Requires g++ (or CXX). Tests exercise the real logger and USB adapter with fake
+clock, USB FIFO, and mutex implementations. AddressSanitizer and
+UndefinedBehaviorSanitizer errors fail the run. CI runs these tests after
+building both firmware targets.
 
-More information about PlatformIO Unit Testing:
-- https://docs.platformio.org/en/latest/advanced/unit-testing/index.html
+Coverage includes bounded diagnostic logging with a disconnected or stalled
+USB host, a busy USB mutex, partial writes, ring wraparound, full queues,
+reentrant callers, message truncation, and rate limiting across clock rollover.
+
+Serial latency retest:
+1. Capture USB Serial during normal control traffic and verify the periodic
+   summaries and connection events arrive without per-packet logging.
+2. Leave the serial port open while pausing host reads long enough for USB
+   buffers to fill. Confirm motor commands remain responsive and the watchdog
+   disables outputs when control traffic stops.
+3. Resume reading and check log_drop/log_supp counters. Repeat with USB
+   unplugged.

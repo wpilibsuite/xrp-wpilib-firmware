@@ -1,3 +1,5 @@
+#include "debug_log.h"
+
 #include "robot.h"
 #include "wpilibudp.h"
 #include "encoder.h"
@@ -54,7 +56,7 @@ bool _initEncoders() {
     int pin = _encoderPins[i].first;
 
     if(!encoders[i].init(pin)) {
-      Serial.printf("[ENC-%u] Failed to set up program.\n", i);
+      debug_log::log("[ENC-%u] Failed to set up program.\n", i);
       return false;
     }
   }
@@ -68,7 +70,9 @@ int _updateEncoders() {
     auto& encoder = encoders[i];
     int next = encoder.update();
     if(next >= 8) {
-      Serial.printf("[ENC-%u] Encoder Possible PIO RX Buffer Overrun: %d\n", i, next);
+      debug_log::logLimited(debug_log::Error::ENCODER_OVERRUN,
+                            "[ENC-%u] Encoder Possible PIO RX Buffer Overrun: %d\n",
+                            i, next);
     }
     count += next;
   }
@@ -181,24 +185,24 @@ void _pwmShutoff() {
 }
 
 void robotInit() {
-  Serial.println("[XRP] Initializing XRP Onboards");
+  debug_log::println("[XRP] Initializing XRP Onboards");
   pinMode(XRP_BUILTIN_LED, OUTPUT);
   pinMode(BOARD_USER_BUTTON, INPUT_PULLUP);
 
   // Set up the encoder state machines
-  Serial.println("[XRP] Initializing Encoders");
+  debug_log::println("[XRP] Initializing Encoders");
   if (!_initEncoders()) {
-    Serial.println("  - ERROR");
+    debug_log::println("  - ERROR");
   }
 
   // Set up the motors
-  Serial.println("[XRP] Initializing Motors");
+  debug_log::println("[XRP] Initializing Motors");
   _initMotors();
 
   // Set up servos
-  Serial.println("[XRP] Initializing Servos");
+  debug_log::println("[XRP] Initializing Servos");
   if (!_initServos()) {
-    Serial.println("  - ERROR");
+    debug_log::println("  - ERROR");
   }
 
   _robotInitialized = true;
@@ -255,14 +259,14 @@ void robotSetEnabled(bool enabled) {
   _robotEnabled = enabled;
 
   if (prevEnabledValue && !enabled) {
-    Serial.println("[XRP] Disabling");
     _pwmShutoff();
+    debug_log::println("[XRP] Disabling");
     for(auto& encoder : encoders) {
       encoder.disable();
     }
   }
   else if (!prevEnabledValue && enabled) {
-    Serial.println("[XRP] Enabling");
+    debug_log::println("[XRP] Enabling");
   }
 }
 
@@ -280,7 +284,7 @@ void configureEncoder(int deviceId, int chA, int chB) {
     _encoderWPILibChannelToNativeMap[deviceId] = ENC_SM_IDX_MOTOR_4;
   }
   else {
-    Serial.printf("[ERR] Invalid encoder pin mapping %d,%d\n", chA, chB);
+    debug_log::log("[ERR] Invalid encoder pin mapping %d,%d\n", chA, chB);
   }
 }
 

@@ -38,6 +38,20 @@ If setup as an Access Point, the configured AP name should appear in the list of
 
 If setup in STA mode (i.e. connected to an existing network), the IP address can be determined by either using a tool like Angry IP Scanner, or (more easily), by connecting the XRP to a computer, navigating to the PICODISK removable drive and opening the `xrp-status.txt` file. This file contains information about which network the XRP is connected to, as well as the IP address.
 
+### Serial Diagnostics
+
+USB Serial reports a runtime summary every five seconds, IMU timing
+about every four seconds, and connection, enable/disable, and error events.
+
+Logs use a fixed 4 KiB RAM queue. The main loop drains at most 64 bytes per
+iteration after control and watchdog processing, using only available USB space.
+A busy USB interface or stalled reader does not make the logger wait. Messages
+are dropped when the queue is full or in use, and messages longer than 767 bytes
+are truncated. Repeated encoder-overrun errors are limited
+to one message per second. The five-second summary includes
+`log_drop`, `log_supp`, and `log_trunc` counters for dropped, rate-limited, and
+truncated messages. Logging does not write to flash.
+
 ### XRP Configuration
 The XRP provides a simple web-based configuration screen that allows users to adjust the network settings. This screen is available at `http://<IP ADDRESS OF XRP>:5000`. By default, this will be `http://192.168.42.1:5000`.
 
