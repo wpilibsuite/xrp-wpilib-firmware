@@ -24,7 +24,7 @@ boolean XRPServo::init(int pin) {
 
 // Set the new servo position
 void XRPServo::setValue(double value) {
-  int val = ((value + 1.0) / 2.0) * 180;
+  int val = static_cast<int>(((value + 1.0) / 2.0) * 180.0 + 0.5);
 
   if(val != _value) {
     _value = val;
