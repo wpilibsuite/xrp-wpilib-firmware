@@ -6,35 +6,35 @@
 
 float networkToFloat(char* buf, int offset) {
   float f;
-  unsigned char b[] = {buf[offset+3], buf[offset+2], buf[offset+1], buf[offset+0]};
+  unsigned char b[] = {static_cast<unsigned char>(buf[offset+3]), static_cast<unsigned char>(buf[offset+2]), static_cast<unsigned char>(buf[offset+1]), static_cast<unsigned char>(buf[offset+0])};
   memcpy(&f, &b, sizeof(f));
   return f;
 }
 
 int16_t networkToInt16(char* buf, int offset) {
   int16_t i;
-  unsigned char b[] = {buf[offset+1], buf[offset+0]};
+  unsigned char b[] = {static_cast<unsigned char>(buf[offset+1]), static_cast<unsigned char>(buf[offset+0])};
   memcpy(&i, &b, sizeof(i));
   return i;
 }
 
 uint16_t networkToUInt16(char* buf, int offset) {
   uint16_t u;
-  unsigned char b[] = {buf[offset+1], buf[offset+0]};
+  unsigned char b[] = {static_cast<unsigned char>(buf[offset+1]), static_cast<unsigned char>(buf[offset+0])};
   memcpy(&u, &b, sizeof(u));
   return u;
 }
 
 int32_t networkToInt32(char* buf, int offset) {
   int32_t i;
-  unsigned char b[] = {buf[offset+3], buf[offset+2], buf[offset+1], buf[offset+0]};
+  unsigned char b[] = {static_cast<unsigned char>(buf[offset+3]), static_cast<unsigned char>(buf[offset+2]), static_cast<unsigned char>(buf[offset+1]), static_cast<unsigned char>(buf[offset+0])};
   memcpy(&i, &b, sizeof(i));
   return i;
 }
 
 uint32_t networkToUInt32(char* buf, int offset) {
   uint32_t u;
-  unsigned char b[] = {buf[offset+3], buf[offset+2], buf[offset+1], buf[offset+0]};
+  unsigned char b[] = {static_cast<unsigned char>(buf[offset+3]), static_cast<unsigned char>(buf[offset+2]), static_cast<unsigned char>(buf[offset+1]), static_cast<unsigned char>(buf[offset+0])};
   memcpy(&u, &b, sizeof(u));
   return u;
 }
