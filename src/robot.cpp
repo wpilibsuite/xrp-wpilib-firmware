@@ -1,17 +1,31 @@
+#include "debug_log.h"
+
 #include "robot.h"
-#include "wpilibudp.h"
+#include "identify_led.h"
+#include "input_voltage.h"
+#include "wpilib_protocol.h"
 #include "encoder.h"
 #include "XRPServo.h"
 
 #include <map>
 #include <vector>
 
-#define MIN_UPDATE_TIME_MS 50
+#define MIN_UPDATE_TIME_MS 20
 
 namespace xrp {
 
 bool _robotInitialized = false;
 bool _robotEnabled = false;
+IdentifyLed _identifyLed;
+bool _ledOutput = false;
+
+void updateLed() {
+  bool value = _identifyLed.value(millis());
+  if (value != _ledOutput) {
+    _ledOutput = value;
+    digitalWrite(XRP_BUILTIN_LED, value ? HIGH : LOW);
+  }
+}
 unsigned long _lastRobotPeriodicCall = 0;
 
 // Digital IO
@@ -54,12 +68,18 @@ bool _initEncoders() {
     int pin = _encoderPins[i].first;
 
     if(!encoders[i].init(pin)) {
-      Serial.printf("[ENC-%u] Failed to set up program.\n", i);
+      debug_log::log("[ENC-%u] Failed to set up program.\n", i);
       return false;
     }
   }
 
   return true;
+}
+
+void _enableEncoders() {
+  for(auto& encoder : encoders) {
+    encoder.enable();
+  }
 }
 
 int _updateEncoders() {
@@ -68,7 +88,9 @@ int _updateEncoders() {
     auto& encoder = encoders[i];
     int next = encoder.update();
     if(next >= 8) {
-      Serial.printf("[ENC-%u] Encoder Possible PIO RX Buffer Overrun: %d\n", i, next);
+      debug_log::logLimited(debug_log::Error::ENCODER_OVERRUN,
+                            "[ENC-%u] Encoder Possible PIO RX Buffer Overrun: %d\n",
+                            i, next);
     }
     count += next;
   }
@@ -136,7 +158,7 @@ void _setMotorPwmValueInternal(int en, int ph, double value) {
 void _setPwmValueInternal(int channel, double value, bool override) {
   if (!_robotEnabled && !override) return;
 
-  if (!wpilibudp::dsWatchdogActive() && !override) {
+  if (!wpilib_protocol::dsWatchdogActive() && !override) {
     return;
   }
 
@@ -181,24 +203,27 @@ void _pwmShutoff() {
 }
 
 void robotInit() {
-  Serial.println("[XRP] Initializing XRP Onboards");
+  debug_log::println("[XRP] Initializing XRP Onboards");
   pinMode(XRP_BUILTIN_LED, OUTPUT);
   pinMode(BOARD_USER_BUTTON, INPUT_PULLUP);
+  inputVoltageInit();
 
   // Set up the encoder state machines
-  Serial.println("[XRP] Initializing Encoders");
+  debug_log::println("[XRP] Initializing Encoders");
   if (!_initEncoders()) {
-    Serial.println("  - ERROR");
+    debug_log::println("  - ERROR");
+  } else {
+    _enableEncoders();
   }
 
   // Set up the motors
-  Serial.println("[XRP] Initializing Motors");
+  debug_log::println("[XRP] Initializing Motors");
   _initMotors();
 
   // Set up servos
-  Serial.println("[XRP] Initializing Servos");
+  debug_log::println("[XRP] Initializing Servos");
   if (!_initServos()) {
-    Serial.println("  - ERROR");
+    debug_log::println("  - ERROR");
   }
 
   _robotInitialized = true;
@@ -214,11 +239,12 @@ uint8_t robotPeriodic() {
 
   // Kill PWM if the watchdog is dead
   // We want this to run as quickly as possible
-  if (!wpilibudp::dsWatchdogActive()) {
+  if (!wpilib_protocol::dsWatchdogActive()) {
     _pwmShutoff();
   }
 
   _updateEncoders();
+  updateLed();
 
   // Only check if user button pressed at the less frequent interval
   if (millis() - _lastRobotPeriodicCall < MIN_UPDATE_TIME_MS) return ret;
@@ -246,24 +272,22 @@ void robotSetEnabled(bool enabled) {
   // Prevent motors from starting with arbitrary values when enabling
   if (!_robotEnabled && enabled) {
     _pwmShutoff();
-    for(auto& encoder : encoders) {
-      encoder.enable();
-    }
   }
 
   bool prevEnabledValue = _robotEnabled;
   _robotEnabled = enabled;
 
   if (prevEnabledValue && !enabled) {
-    Serial.println("[XRP] Disabling");
     _pwmShutoff();
-    for(auto& encoder : encoders) {
-      encoder.disable();
-    }
+    debug_log::println("[XRP] Disabling");
   }
   else if (!prevEnabledValue && enabled) {
-    Serial.println("[XRP] Enabling");
+    debug_log::println("[XRP] Enabling");
   }
+}
+
+bool robotEnabled() {
+  return _robotEnabled;
 }
 
 void configureEncoder(int deviceId, int chA, int chB) {
@@ -280,7 +304,7 @@ void configureEncoder(int deviceId, int chA, int chB) {
     _encoderWPILibChannelToNativeMap[deviceId] = ENC_SM_IDX_MOTOR_4;
   }
   else {
-    Serial.printf("[ERR] Invalid encoder pin mapping %d,%d\n", chA, chB);
+    debug_log::log("[ERR] Invalid encoder pin mapping %d,%d\n", chA, chB);
   }
 }
 
@@ -298,9 +322,14 @@ void setPwmValue(int wpilibChannel, double value) {
 
 void setDigitalOutput(int channel, bool value) {
   if (channel == 1) {
-    // LED
-    digitalWrite(XRP_BUILTIN_LED, value ? HIGH : LOW);
+    _identifyLed.set(value);
+    updateLed();
   }
+}
+
+void identifyRobot() {
+  _identifyLed.start(millis());
+  updateLed();
 }
 
 void reflectanceInit() {

@@ -12,6 +12,7 @@ uint8_t robotPeriodic();
 
 // Robot control
 void robotSetEnabled(bool enabled);
+bool robotEnabled();
 
 // Encoder Related
 void configureEncoder(int deviceId, int chA, int chB);
@@ -24,6 +25,8 @@ void setPwmValue(int wpilibChannel, double value);
 // DIO Related
 bool isUserButtonPressed();
 void setDigitalOutput(int channel, bool value);
+// Flash the onboard LED for five seconds without changing control state.
+void identifyRobot();
 
 // Line/Reflectance Sensing Related
 void reflectanceInit();

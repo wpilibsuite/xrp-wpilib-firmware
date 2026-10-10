@@ -5,23 +5,19 @@
     <title>XRP Configuration</title>
     <link rel="stylesheet" href="normalize.css">
     <link rel="stylesheet" href="skeleton.css">
-    <script type="text/javascript" src="xrp.js"></script>
 </head>
 <body>
     <div class="container">
         <div class="row">
           <div class="column" style="margin-top: 5%">
             <h4>XRP Configuration</h4>
-            <p>Edit the JSON below as necessary</p>
+            <p>The web configuration editor has been removed. Edit <code>/config.ini</code> with a plain text editor, then restart the XRP.</p>
           </div>
         </div>
-        <form>
-            <label for="configJson">Configuration JSON</label>
-            <textarea class="u-full-width" style="white-space: pre; height: auto" rows="20" id="configJson"></textarea>
-            
-            <input class="button" id="resetButton" type="submit" value="Reset to Default">
-            <input class="button-primary" id="saveButton" type="submit" value="Save">
-        </form>
+        <pre><code>config_version = 3
+
+[bluetooth]
+# device_name = WPIXRP-AAAA-BBBB</code></pre>
       </div>
       <div class="row">
           Firmware Version: %%%VERSION_REPLACE%%%

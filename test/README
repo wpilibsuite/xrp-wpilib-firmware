@@ -1,11 +1,82 @@
+Run host regressions from the repository root:
 
-This directory is intended for PlatformIO Test Runner and project tests.
+    python3 test/run_native.py
 
-Unit Testing is a software testing method by which individual units of
-source code, sets of one or more MCU program modules together with associated
-control data, usage procedures, and operating procedures, are tested to
-determine whether they are fit for use. Unit testing finds problems early
-in the development cycle.
+Requires g++ (or CXX), gcc (or CC), and the Arduino-Pico framework installed
+by `pio run`.
+Set ARDUINO_PICO_DIR when the framework is installed outside the default
+~/.platformio/packages/framework-arduinopico directory. Tests use the actual
+BTstack declarations and event accessors with fake hardware, filesystem, and
+radio implementations. AddressSanitizer and UndefinedBehaviorSanitizer errors
+fail the run. CI runs these tests after building both firmware targets.
 
-More information about PlatformIO Unit Testing:
-- https://docs.platformio.org/en/latest/advanced/unit-testing/index.html
+Coverage includes:
+- input-voltage ADC setup, pin selection, divider scaling, millivolt encoding,
+  and full status packets with voltage, timing, and identify acknowledgements;
+- identify LED timing, restoration of DIO state, repeated requests, and clock
+  rollover; identify packet validation, sequencing, watchdog isolation, and
+  command acknowledgements alongside sensor telemetry;
+- bounded diagnostic logging with a disconnected or stalled USB host, a busy
+  USB mutex, partial writes, ring wraparound, full queues, reentrant callers,
+  message truncation, and per-category rate limiting across clock rollover;
+- motor-command processing and watchdog shutdown with a full diagnostic queue
+  and stalled USB reader, and USB draining after control processing;
+- packet lengths, all fixed-field masks, duplicate/stale sequences, rollover,
+  arbitrary initial sequences, watchdog resets, and rename ACK/timing echoes;
+- degree-to-servo round trips and analog/encoder boundary values;
+- INI parsing, integer overflow, escaped names, and config preservation on
+  short writes, failed close/sync, failed rename, and failed open;
+- L2CAP retained SDU buffers, coalescing, inline/deferred callbacks, request
+  errors, pending channel reservations, queue overflow, and foreign peers;
+- GATT fallback with a credit-starved L2CAP channel still open, switching back
+  to L2CAP, and delayed callbacks from the previously selected transport;
+- the actual main loop during fast L2CAP reconnects with reused handles/CIDs,
+  either LE/ATT event order, queued RX/TX, sequence zero before watchdog expiry,
+  L2CAP-only closure, and disconnect without a new packet;
+- identification-file creation and content updates, skipping writes for matching
+  files, name refresh, and runtime diagnostics without filesystem writes;
+- output shutdown before rename writes, queued enables during the reboot
+  delay, repeated ACK windows, and status encoding of encoder wrap/sentinels;
+- the actual bundled BTstack allocator with the project patch: 1,024 LE channel
+  allocations, wraparound at 0x007f, occupied channels, and Classic/LE interleaving.
+
+Hardware retest (native tests cannot reproduce controller/OS radio timing):
+1. On Linux/macOS L2CAP, disconnect/reconnect at least 128 times without
+   rebooting XRP, crossing the 64-channel LE CID range twice. Include restarting
+   the client and reconnecting within 500 ms. Confirm
+   controls and status resume, and queued commands do not survive disconnect.
+2. Run through sequence 65535 -> 0 (about 22 minutes at 50 packets/second).
+3. Repeat with a busy link and with a second client attempting to connect.
+4. Rename while enabled: outputs should stop, a success ACK should arrive,
+   and reconnect should work under the new name after reboot.
+5. Smoke-test GATT, including notification disable/re-enable and reconnect.
+
+The protocol uses modular sequence comparisons and automatically enables GATT
+notifications when control traffic arrives.
+
+Serial latency retest:
+1. Capture USB Serial during normal control traffic and verify the periodic
+   summaries and connection events arrive without per-packet logging.
+2. Leave the serial port open while pausing host reads long enough for USB
+   buffers to fill. Confirm motor commands remain responsive and the watchdog
+   disables outputs when control traffic stops.
+3. Resume reading and check log_drop/log_supp counters. Repeat with USB
+   unplugged and during repeated Bluetooth connection failures.
+
+Identify retest:
+1. Connect with matching client and firmware builds and press Identify while
+   disabled. Check for five seconds of LED flashing without enabling outputs.
+2. Change DIO 1 during the flash and confirm that value is restored afterward.
+3. Press Identify again during a flash to restart it. Disconnect during a flash
+   and confirm it still finishes locally. Check sensor updates during the flash.
+
+Input voltage retest (beta and production boards):
+1. Flash the firmware and run the matching client. Compare Input voltage in
+   XRP Status with the supply measured at board VIN and ground. Check the
+   robot program's RobotController.getBatteryVoltage() / GetBatteryVoltage()
+   agrees with the GUI reading.
+2. Test battery and USB power, and confirm the reading changes with the
+   measured supply. VIN is after the power switch; USB can supply VIN when
+   the switch is on.
+3. Repeat over L2CAP and GATT, after reconnecting, and during Identify. Check
+   that voltage, other sensors, and latency continue updating.

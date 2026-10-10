@@ -1,3 +1,5 @@
+#include "debug_log.h"
+
 #include <Servo.h>
 #include "XRPServo.h"
 #include "pins.h"
@@ -10,13 +12,13 @@ boolean XRPServo::init(int pin) {
 
     // Only attach to a servo if it is valid.
     if(!isValid(pin)) {
-      Serial.printf("Pin [%d] unavailable on this board", pin);
-      Serial.println("\n");
+      debug_log::log("Pin [%d] unavailable on this board", pin);
+      debug_log::println("\n");
       return true;
     }
 
     if(_servo.attach(pin, XRP_SERVO_MIN_PULSE_US, XRP_SERVO_MAX_PULSE_US) == -1) {
-        Serial.println("[ERR] Failed to attach servo1");
+        debug_log::println("[ERR] Failed to attach servo1");
         success = false;
     }
     return success;
