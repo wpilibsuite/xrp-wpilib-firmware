@@ -62,6 +62,12 @@ bool _initEncoders() {
   return true;
 }
 
+void _enableEncoders() {
+  for(auto& encoder : encoders) {
+    encoder.enable();
+  }
+}
+
 int _updateEncoders() {
   int count = 0;
   for(int i=0; i < NUM_OF_ENCODERS; ++i) {
@@ -189,6 +195,8 @@ void robotInit() {
   Serial.println("[XRP] Initializing Encoders");
   if (!_initEncoders()) {
     Serial.println("  - ERROR");
+  } else {
+    _enableEncoders();
   }
 
   // Set up the motors
@@ -246,9 +254,6 @@ void robotSetEnabled(bool enabled) {
   // Prevent motors from starting with arbitrary values when enabling
   if (!_robotEnabled && enabled) {
     _pwmShutoff();
-    for(auto& encoder : encoders) {
-      encoder.enable();
-    }
   }
 
   bool prevEnabledValue = _robotEnabled;
@@ -257,9 +262,6 @@ void robotSetEnabled(bool enabled) {
   if (prevEnabledValue && !enabled) {
     Serial.println("[XRP] Disabling");
     _pwmShutoff();
-    for(auto& encoder : encoders) {
-      encoder.disable();
-    }
   }
   else if (!prevEnabledValue && enabled) {
     Serial.println("[XRP] Enabling");
